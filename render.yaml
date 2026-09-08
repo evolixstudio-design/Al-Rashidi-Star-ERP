@@ -1,0 +1,19 @@
+# Render Blueprint Configuration for Al-Rashidi Star Backend
+services:
+  - type: web
+    name: al-rashidi-star-backend
+    runtime: node
+    rootDir: backend
+    plan: free
+    region: frankfurt
+    buildCommand: npm install && npm run build
+    startCommand: node dist/main.js
+    envVars:
+      - key: NODE_VERSION
+        value: 20
+      - key: DATABASE_URL
+        sync: false # Set your Neon connection string in Render Dashboard
+      - key: JWT_SECRET
+        generateValue: true # Render automatically generates a secure 256-bit random key
+      - key: PORT
+        value: 10000

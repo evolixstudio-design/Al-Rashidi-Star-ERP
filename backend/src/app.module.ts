@@ -42,32 +42,47 @@ import { WhatsAppModule } from './modules/whatsapp/whatsapp.module.js';
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
-      useFactory: (configService: ConfigService) => ({
-        type: 'postgres',
-        host: configService.get<string>('DB_HOST', 'localhost'),
-        port: parseInt(configService.get<string>('DB_PORT', '5432'), 10),
-        username: configService.get<string>('DB_USERNAME', 'postgres'),
-        password: configService.get<string>('DB_PASSWORD', 'Qusai5253'),
-        database: configService.get<string>('DB_DATABASE', 'rashidi_erp'),
-        entities: [
-          User,
-          Company,
-          Setting,
-          AuditEvent,
-          Category,
-          Product,
-          StockLedger,
-          Supplier,
-          PurchaseReceipt,
-          PurchaseLine,
-          Customer,
-          SalesInvoice,
-          SalesInvoiceLine,
-          CustomerReceipt,
-          Expense,
-        ],
-        synchronize: true, // Automatically synchronize schema in development
-      }),
+      useFactory: (configService: ConfigService) => {
+        const databaseUrl = configService.get<string>('DATABASE_URL');
+        const isSsl =
+          configService.get<string>('DB_SSL') === 'true' ||
+          Boolean(databaseUrl && (databaseUrl.includes('neon.tech') || databaseUrl.includes('sslmode=')));
+
+        return {
+          type: 'postgres',
+          ...(databaseUrl
+            ? {
+                url: databaseUrl,
+                ssl: isSsl ? { rejectUnauthorized: false } : false,
+              }
+            : {
+                host: configService.get<string>('DB_HOST', 'localhost'),
+                port: parseInt(configService.get<string>('DB_PORT', '5432'), 10),
+                username: configService.get<string>('DB_USERNAME', 'postgres'),
+                password: configService.get<string>('DB_PASSWORD', 'Qusai5253'),
+                database: configService.get<string>('DB_DATABASE', 'rashidi_erp'),
+                ssl: configService.get<string>('DB_SSL') === 'true' ? { rejectUnauthorized: false } : false,
+              }),
+          entities: [
+            User,
+            Company,
+            Setting,
+            AuditEvent,
+            Category,
+            Product,
+            StockLedger,
+            Supplier,
+            PurchaseReceipt,
+            PurchaseLine,
+            Customer,
+            SalesInvoice,
+            SalesInvoiceLine,
+            CustomerReceipt,
+            Expense,
+          ],
+          synchronize: true, // Automatically creates tables on first deploy to Neon
+        };
+      },
     }),
     AuditModule,
     UsersModule,

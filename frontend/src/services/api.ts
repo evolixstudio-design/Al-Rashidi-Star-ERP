@@ -1,7 +1,13 @@
 import axios from 'axios';
 
+// Support VITE_API_URL for production deployments (e.g. Netlify -> Render backend)
+const rawApiUrl = import.meta.env.VITE_API_URL;
+const baseURL = rawApiUrl
+  ? `${rawApiUrl.replace(/\/+$/, '')}/api`
+  : '/api';
+
 const api = axios.create({
-  baseURL: '/api',
+  baseURL,
   headers: {
     'Content-Type': 'application/json',
   },
