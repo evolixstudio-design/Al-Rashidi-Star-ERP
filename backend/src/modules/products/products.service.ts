@@ -348,6 +348,33 @@ export class ProductsService implements OnModuleInit {
     return this.findOne(product.id);
   }
 
+  async delete(id: number, user: any) {
+    const product = await this.productRepo.findOne({ where: { id } });
+    if (!product) {
+      throw new NotFoundException(`Product with ID ${id} not found.`);
+    }
+
+    try {
+      await this.productRepo.remove(product);
+
+      await this.auditService.log({
+        action: 'DELETE',
+        entityType: 'PRODUCT',
+        entityId: String(id),
+        performedBy: user?.displayName || 'Owner',
+        details: { articleNumber: product.articleNumber, reason: 'Product hard deleted' },
+      });
+
+      return { success: true, message: `Product ${id} deleted successfully` };
+    } catch (error: any) {
+      // TypeORM throws QueryFailedError for foreign key constraints
+      if (error.code === '23503' || error.message?.includes('foreign key')) {
+        throw new BadRequestException('Cannot delete product because it is being used in sales or purchases.');
+      }
+      throw error;
+    }
+  }
+
   // Categories
   async getCategories() {
     return this.categoryRepo.find({ order: { nameEn: 'ASC' } });

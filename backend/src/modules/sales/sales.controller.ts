@@ -7,6 +7,7 @@ import {
   UseGuards,
   Request,
   ParseIntPipe,
+  Delete,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { SalesService, CreateInvoiceDto } from './sales.service.js';
@@ -34,5 +35,10 @@ export class SalesController {
   @Post(':id/cancel')
   async cancelInvoice(@Param('id', ParseIntPipe) id: number, @Request() req: any) {
     return this.salesService.cancelInvoice(id, req.user);
+  }
+
+  @Delete(':id')
+  async deleteInvoice(@Param('id', ParseIntPipe) id: number, @Request() req: any) {
+    return this.salesService.deleteInvoice(id, req.user);
   }
 }

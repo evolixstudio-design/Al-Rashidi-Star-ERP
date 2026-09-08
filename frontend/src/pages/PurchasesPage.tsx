@@ -18,8 +18,8 @@ import {
   DollarSign,
   Printer,
   Sparkles,
-  Ban,
   History,
+  Trash2,
 } from 'lucide-react';
 import { TransactionAuditModal } from '../components/common/TransactionAuditModal';
 
@@ -152,6 +152,24 @@ export const PurchasesPage: React.FC = () => {
       fetchData();
     } catch (err: any) {
       showToast(err.response?.data?.message || 'Failed to cancel purchase receipt.', 'error');
+    }
+  };
+
+  const handleDeleteReceipt = async (rec: PurchaseReceiptItem) => {
+    if (
+      !window.confirm(
+        `Are you ABSOLUTELY sure you want to permanently delete purchase receipt ${rec.receiptNumber}?\n\nThis will completely remove the record, reverse stock, and reverse supplier payable balance.`
+      )
+    ) {
+      return;
+    }
+
+    try {
+      await api.delete(`/purchases/${rec.id}`);
+      showToast(`Purchase receipt ${rec.receiptNumber} deleted permanently.`, 'success');
+      fetchData();
+    } catch (err: any) {
+      showToast(err.response?.data?.message || 'Failed to delete purchase receipt.', 'error');
     }
   };
 
@@ -581,15 +599,26 @@ export const PurchasesPage: React.FC = () => {
                           <span>History</span>
                         </button>
                         {rec.status !== 'CANCELLED' ? (
-                          <button
-                            type="button"
-                            onClick={() => handleCancelReceipt(rec)}
-                            title="Cancel Purchase & Reverse Stock"
-                            className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-xs rounded-lg border border-rose-200 transition-colors cursor-pointer"
-                          >
-                            <Ban className="w-3.5 h-3.5" />
-                            <span>Cancel</span>
-                          </button>
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => handleCancelReceipt(rec)}
+                              title="Cancel Purchase & Reverse Stock"
+                              className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-xs rounded-lg border border-rose-200 transition-colors cursor-pointer"
+                            >
+                              <Ban className="w-3.5 h-3.5" />
+                              <span>Cancel</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteReceipt(rec)}
+                              title="Delete permanently"
+                              className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-rose-100 hover:bg-rose-200 text-rose-800 font-bold text-xs rounded-lg border border-rose-300 transition-colors cursor-pointer"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                              <span>Delete</span>
+                            </button>
+                          </>
                         ) : (
                           <span className="inline-block px-2.5 py-1 bg-slate-100 text-slate-500 rounded text-xs font-semibold">
                             Cancelled

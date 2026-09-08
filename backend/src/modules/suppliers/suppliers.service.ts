@@ -123,6 +123,32 @@ export class SuppliersService {
     return supplier;
   }
 
+  async delete(id: number, user: any) {
+    const supplier = await this.supplierRepo.findOne({ where: { id } });
+    if (!supplier) {
+      throw new NotFoundException(`Supplier with ID ${id} not found.`);
+    }
+
+    try {
+      await this.supplierRepo.remove(supplier);
+
+      await this.auditService.log({
+        action: 'DELETE',
+        entityType: 'SUPPLIER',
+        entityId: String(id),
+        performedBy: user?.displayName || 'Owner',
+        details: { name: supplier.name, reason: 'Supplier hard deleted' },
+      });
+
+      return { success: true, message: `Supplier ${id} deleted successfully` };
+    } catch (error: any) {
+      if (error.code === '23503' || error.message?.includes('foreign key')) {
+        throw new BadRequestException('Cannot delete supplier because they have associated purchase receipts.');
+      }
+      throw error;
+    }
+  }
+
   async bulkImport(items: BulkImportSupplierDto[], user: any) {
     if (!Array.isArray(items) || items.length === 0) {
       throw new BadRequestException('Import list cannot be empty.');

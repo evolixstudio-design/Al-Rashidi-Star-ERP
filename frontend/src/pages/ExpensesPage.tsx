@@ -17,6 +17,7 @@ import {
   Filter,
   DollarSign,
   AlertTriangle,
+  Trash2,
 } from 'lucide-react';
 import { TransactionAuditModal } from '../components/common/TransactionAuditModal';
 
@@ -250,6 +251,26 @@ export const ExpensesPage: React.FC = () => {
       showToast(err.response?.data?.message || 'Failed to cancel expense', 'error');
     } finally {
       setCancelling(false);
+    }
+  };
+
+  /* ── Delete Expense ── */
+  const handleDeleteExpense = async (expense: ExpenseItem) => {
+    if (
+      !window.confirm(
+        `Are you ABSOLUTELY sure you want to permanently delete expense ${expense.expenseNumber}?\n\nThis will completely remove the record from the system.`
+      )
+    ) {
+      return;
+    }
+
+    try {
+      await api.delete(`/expenses/${expense.id}`);
+      showToast(`Expense ${expense.expenseNumber} deleted permanently.`);
+      fetchExpenses();
+      fetchCategories();
+    } catch (err: any) {
+      showToast(err.response?.data?.message || 'Failed to delete expense.', 'error');
     }
   };
 
@@ -659,18 +680,29 @@ export const ExpensesPage: React.FC = () => {
 
                           {/* Cancel Expense (Replaces hard delete!) */}
                           {!isCancelled ? (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setCancellingExpense(expense);
-                                setCancelReason('Duplicate or erroneous entry');
-                              }}
-                              className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-rose-700 bg-rose-50 hover:bg-rose-100 rounded-md transition-colors cursor-pointer"
-                              title="Cancel expense (reverses financial impact without hard delete)"
-                            >
-                              <Ban className="w-3.5 h-3.5 text-rose-600" />
-                              <span>Cancel</span>
-                            </button>
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setCancellingExpense(expense);
+                                  setCancelReason('Duplicate or erroneous entry');
+                                }}
+                                className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-rose-700 bg-rose-50 hover:bg-rose-100 rounded-md transition-colors cursor-pointer"
+                                title="Cancel expense (reverses financial impact without hard delete)"
+                              >
+                                <Ban className="w-3.5 h-3.5 text-rose-600" />
+                                <span>Cancel</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteExpense(expense)}
+                                className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-rose-800 bg-rose-100 hover:bg-rose-200 rounded-md transition-colors cursor-pointer"
+                                title="Delete permanently"
+                              >
+                                <Trash2 className="w-3.5 h-3.5 text-rose-700" />
+                                <span>Delete</span>
+                              </button>
+                            </>
                           ) : (
                             <button
                               type="button"

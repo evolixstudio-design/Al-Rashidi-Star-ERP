@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useTranslations } from '../hooks/useTranslations';
 import api from '../services/api';
+import { translateEnglishToArabic } from '../utils/translate';
 import {
   Search,
   Plus,
@@ -18,6 +19,7 @@ import {
   Upload,
   Download,
   DollarSign,
+  Trash2,
 } from 'lucide-react';
 
 /* ───────────────────── Types ───────────────────── */
@@ -104,6 +106,24 @@ export const StockPage: React.FC = () => {
       setLoading(false);
     }
   }, [search, categoryFilter, lowStockFilter]);
+
+  const handleDeleteProduct = async (product: ProductItem) => {
+    if (
+      !window.confirm(
+        `Are you ABSOLUTELY sure you want to permanently delete product "${product.nameEn}" (${product.articleNumber})?\n\nThis will completely remove it from the system.`
+      )
+    ) {
+      return;
+    }
+
+    try {
+      await api.delete(`/products/${product.id}`);
+      showToast(`Product ${product.articleNumber} deleted permanently.`);
+      fetchProducts();
+    } catch (err: any) {
+      showToast(err.response?.data?.message || 'Failed to delete product. It may be used in invoices or receipts.');
+    }
+  };
 
   const fetchCategories = useCallback(async () => {
     try {
@@ -385,6 +405,14 @@ export const StockPage: React.FC = () => {
                         >
                           <ScrollText className="w-3.5 h-3.5" />
                         </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteProduct(p)}
+                          className="p-1.5 rounded-md text-slate-500 hover:bg-rose-100 hover:text-rose-700 transition-colors"
+                          title="Delete Product"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -573,6 +601,12 @@ function AddProductModal({
                 type="text"
                 value={form.nameEn}
                 onChange={(e) => setForm({ ...form, nameEn: e.target.value })}
+                onBlur={async () => {
+                  if (form.nameEn && !form.nameAr) {
+                    const translated = await translateEnglishToArabic(form.nameEn);
+                    if (translated) setForm({ ...form, nameAr: translated });
+                  }
+                }}
                 placeholder={lang === 'hi' ? 'Product naam (English)' : 'Product name (English)'}
                 className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-slate-900 font-semibold text-sm placeholder:font-normal placeholder:text-slate-400 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 shadow-xs transition-colors"
               />
@@ -624,27 +658,35 @@ function AddProductModal({
           </div>
 
           <div className="grid grid-cols-3 gap-3.5">
-            <FormField label={t.stock.purchasePrice}>
-              <input
-                type="number"
-                step="0.001"
-                min="0"
-                value={form.purchasePrice}
-                onChange={(e) => setForm({ ...form, purchasePrice: e.target.value })}
-                placeholder="0.000"
-                className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-slate-900 font-bold text-sm text-right focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 shadow-xs transition-colors"
-              />
+            <FormField label={`${t.stock.purchasePrice} (per Dozen)`}>
+              <div className="relative">
+                <span className="absolute left-3 top-2.5 text-slate-400 font-bold text-sm">KD</span>
+                <input
+                  type="number"
+                  step="0.001"
+                  min="0"
+                  value={form.purchasePrice}
+                  onChange={(e) => setForm({ ...form, purchasePrice: e.target.value })}
+                  onFocus={(e) => e.target.select()}
+                  placeholder="0.000"
+                  className="w-full pl-12 pr-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-slate-900 font-bold text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 shadow-xs transition-colors"
+                />
+              </div>
             </FormField>
-            <FormField label={t.stock.sellingPrice}>
-              <input
-                type="number"
-                step="0.001"
-                min="0"
-                value={form.sellingPrice}
-                onChange={(e) => setForm({ ...form, sellingPrice: e.target.value })}
-                placeholder="0.000"
-                className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-slate-900 font-bold text-sm text-right focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 shadow-xs transition-colors"
-              />
+            <FormField label={`${t.stock.sellingPrice} (per Dozen)`}>
+              <div className="relative">
+                <span className="absolute left-3 top-2.5 text-slate-400 font-bold text-sm">KD</span>
+                <input
+                  type="number"
+                  step="0.001"
+                  min="0"
+                  value={form.sellingPrice}
+                  onChange={(e) => setForm({ ...form, sellingPrice: e.target.value })}
+                  onFocus={(e) => e.target.select()}
+                  placeholder="0.000"
+                  className="w-full pl-12 pr-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-slate-900 font-bold text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 shadow-xs transition-colors"
+                />
+              </div>
             </FormField>
             <FormField label={t.stock.reorderLevel}>
               <input
@@ -665,6 +707,7 @@ function AddProductModal({
                 min="0"
                 value={form.initialDozen}
                 onChange={(e) => setForm({ ...form, initialDozen: e.target.value })}
+                onFocus={(e) => e.target.select()}
                 placeholder="0"
                 className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-slate-900 font-bold text-sm text-center focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 shadow-xs transition-colors"
               />
@@ -673,8 +716,10 @@ function AddProductModal({
               <input
                 type="number"
                 min="0"
+                max="11"
                 value={form.initialPieces}
                 onChange={(e) => setForm({ ...form, initialPieces: e.target.value })}
+                onFocus={(e) => e.target.select()}
                 placeholder="0"
                 className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-slate-900 font-bold text-sm text-center focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 shadow-xs transition-colors"
               />

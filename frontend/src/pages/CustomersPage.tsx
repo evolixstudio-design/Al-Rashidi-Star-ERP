@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
+import { translateEnglishToArabic } from '../utils/translate';
 import {
   Users,
   Plus,
@@ -19,6 +20,7 @@ import {
   BookOpen,
   ChevronDown,
   Eye,
+  Trash2,
 } from 'lucide-react';
 import { CsvImportModal } from '../components/common/CsvImportModal';
 import { CustomerLedgerModal } from '../components/customers/CustomerLedgerModal';
@@ -147,6 +149,26 @@ export const CustomersPage: React.FC = () => {
     setFormError('');
     setShowAddModal(true);
     setOpenDropdownId(null);
+  };
+
+  /* ── Delete Customer ── */
+  const handleDeleteCustomer = async (c: CustomerItem) => {
+    setOpenDropdownId(null);
+    if (
+      !window.confirm(
+        `Are you ABSOLUTELY sure you want to permanently delete customer "${c.name}"?\n\nThis will completely remove them from the system.`
+      )
+    ) {
+      return;
+    }
+
+    try {
+      await api.delete(`/customers/${c.id}`);
+      showSuccessToast(`Customer ${c.name} deleted permanently.`);
+      fetchCustomers();
+    } catch (err: any) {
+      showSuccessToast(err.response?.data?.message || 'Failed to delete customer. They may have active invoices.');
+    }
   };
 
   /* ── View Customer Pending Invoices ── */
@@ -599,6 +621,15 @@ export const CustomersPage: React.FC = () => {
                                   <FileText className="w-3.5 h-3.5 text-slate-500" />
                                   <span>All Invoices</span>
                                 </button>
+                                <div className="h-px bg-slate-100 my-1"></div>
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteCustomer(c)}
+                                  className="w-full px-3.5 py-2 text-xs font-semibold text-rose-700 hover:bg-rose-50 flex items-center gap-2 cursor-pointer"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5 text-rose-600" />
+                                  <span>Delete Customer</span>
+                                </button>
                               </div>
                             )}
                           </div>
@@ -653,6 +684,12 @@ export const CustomersPage: React.FC = () => {
                   placeholder="e.g. Al-Salmiya Boutique, Tariq Textiles..."
                   value={name}
                   onChange={(e) => setName(e.target.value)}
+                  onBlur={async () => {
+                    if (name && !nameAr) {
+                      const translated = await translateEnglishToArabic(name);
+                      if (translated) setNameAr(translated);
+                    }
+                  }}
                   className="w-full px-3 py-2 text-sm font-semibold bg-slate-50 border border-slate-300 rounded-xl focus:bg-white focus:border-slate-900 outline-none"
                 />
               </div>

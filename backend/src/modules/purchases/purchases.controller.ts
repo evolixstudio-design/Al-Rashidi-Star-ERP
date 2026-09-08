@@ -7,6 +7,7 @@ import {
   UseGuards,
   Request,
   ParseIntPipe,
+  Delete,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard.js';
 import { PurchasesService, ReceiveShipmentDto } from './purchases.service.js';
@@ -39,5 +40,10 @@ export class PurchasesController {
   @Post(':id/cancel')
   async cancelPurchase(@Param('id', ParseIntPipe) id: number, @Request() req: any) {
     return this.purchasesService.cancelReceipt(id, req.user);
+  }
+
+  @Delete(':id')
+  async deletePurchase(@Param('id', ParseIntPipe) id: number, @Request() req: any) {
+    return this.purchasesService.deleteReceipt(id, req.user);
   }
 }

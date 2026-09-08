@@ -9,6 +9,7 @@ import {
   UseGuards,
   Request,
   ParseIntPipe,
+  Delete,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { CustomersService, CreateCustomerDto, UpdateCustomerDto } from './customers.service.js';
@@ -60,5 +61,10 @@ export class CustomersController {
     @Request() req: any,
   ) {
     return this.customersService.update(id, dto, req.user);
+  }
+
+  @Delete(':id')
+  async deleteCustomer(@Param('id', ParseIntPipe) id: number, @Request() req: any) {
+    return this.customersService.delete(id, req.user);
   }
 }

@@ -9,6 +9,7 @@ import {
   UseGuards,
   Request,
   ParseIntPipe,
+  Delete,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard.js';
 import {
@@ -66,6 +67,11 @@ export class ProductsController {
     @Request() req: any,
   ) {
     return this.productsService.update(id, dto, req.user);
+  }
+
+  @Delete(':id')
+  async deleteProduct(@Param('id', ParseIntPipe) id: number, @Request() req: any) {
+    return this.productsService.delete(id, req.user);
   }
 }
 

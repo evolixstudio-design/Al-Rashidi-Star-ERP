@@ -156,6 +156,32 @@ export class CustomersService {
     return this.formatCustomer(saved);
   }
 
+  async delete(id: number, user: any) {
+    const customer = await this.customerRepo.findOne({ where: { id } });
+    if (!customer) {
+      throw new NotFoundException(`Customer with ID ${id} not found.`);
+    }
+
+    try {
+      await this.customerRepo.remove(customer);
+
+      await this.auditService.log({
+        action: 'DELETE',
+        entityType: 'CUSTOMER',
+        entityId: String(id),
+        performedBy: user?.displayName || 'Owner',
+        details: { name: customer.name, reason: 'Customer hard deleted' },
+      });
+
+      return { success: true, message: `Customer ${id} deleted successfully` };
+    } catch (error: any) {
+      if (error.code === '23503' || error.message?.includes('foreign key')) {
+        throw new BadRequestException('Cannot delete customer because they have associated invoices or receipts.');
+      }
+      throw error;
+    }
+  }
+
   async bulkImport(items: BulkImportCustomerDto[], user: any) {
     if (!Array.isArray(items) || items.length === 0) {
       throw new BadRequestException('Import list cannot be empty.');

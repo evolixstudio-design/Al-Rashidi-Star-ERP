@@ -356,6 +356,84 @@ export class SalesService {
     return this.findOne(id);
   }
 
+  async deleteInvoice(id: number, user: any) {
+    await this.dataSource.transaction(async (manager) => {
+      const invoice = await manager.findOne(SalesInvoice, {
+        where: { id },
+        relations: { lines: { product: true }, customer: true },
+      });
+
+      if (!invoice) {
+        throw new NotFoundException(`Invoice with ID ${id} not found.`);
+      }
+
+      // If not already cancelled, we need to reverse stock and balances first
+      if (invoice.status !== 'CANCELLED') {
+        // Reverse stock for each line
+        if (invoice.lines) {
+          for (const line of invoice.lines) {
+            const product = await manager.findOne(Product, {
+              where: { id: line.productId },
+              lock: { mode: 'pessimistic_write' },
+            });
+            if (product) {
+              const prevStock = Number(product.currentStockPcs || 0);
+              const newStock = prevStock + Number(line.totalPcs);
+              product.currentStockPcs = newStock;
+              await manager.save(Product, product);
+
+              const ledger = manager.create(StockLedger, {
+                productId: product.id,
+                quantityChangePcs: Number(line.totalPcs),
+                balanceAfterPcs: newStock,
+                sourceType: 'SALES_INVOICE',
+                sourceId: invoice.id,
+                sourceReference: `DELETE-${invoice.invoiceNumber}`,
+                notes: `Invoice ${invoice.invoiceNumber} deleted — stock restored`,
+                performedBy: user?.displayName || 'Owner',
+              });
+              await manager.save(StockLedger, ledger);
+            }
+          }
+        }
+
+        // Reverse customer balances
+        if (invoice.customer) {
+          const customer = await manager.findOne(Customer, {
+            where: { id: invoice.customerId },
+            lock: { mode: 'pessimistic_write' },
+          });
+          if (customer) {
+            customer.totalSales = Number((Number(customer.totalSales || 0) - Number(invoice.totalAmountKd)).toFixed(3));
+            customer.totalReceived = Number((Number(customer.totalReceived || 0) - Number(invoice.amountReceivedKd)).toFixed(3));
+            customer.totalOutstanding = Number((Number(customer.totalOutstanding || 0) - Number(invoice.outstandingKd)).toFixed(3));
+            if (customer.totalSales < 0) customer.totalSales = 0;
+            if (customer.totalReceived < 0) customer.totalReceived = 0;
+            if (customer.totalOutstanding < 0) customer.totalOutstanding = 0;
+            await manager.save(Customer, customer);
+          }
+        }
+      }
+
+      // We should safely remove ledger entries pointing to this sourceId first if there is a constraint,
+      // but in this app StockLedger sourceType and sourceId are loose references (no FK constraint).
+      await manager.remove(SalesInvoice, invoice);
+
+      await this.auditService.log({
+        action: 'DELETE',
+        entityType: 'SALES_INVOICE',
+        entityId: String(id),
+        performedBy: user?.displayName || 'Owner',
+        details: {
+          invoiceNumber: invoice.invoiceNumber,
+          totalAmountKd: Number(invoice.totalAmountKd),
+          reason: 'Invoice hard deleted',
+        },
+      });
+    });
+    return { success: true, message: `Invoice ${id} deleted successfully` };
+  }
+
   private formatInvoice(invoice: SalesInvoice) {
     const totalPcs = Number(invoice.totalPcs || 0);
     const dozen = Math.floor(totalPcs / 12);

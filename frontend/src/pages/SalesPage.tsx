@@ -20,6 +20,7 @@ import {
   Calendar,
   Boxes,
   HelpCircle,
+  Trash2,
 } from 'lucide-react';
 import RashidiStarInvoice from '../components/common/RashidiStarInvoice';
 import { useTranslations } from '../hooks/useTranslations';
@@ -428,6 +429,30 @@ export const SalesPage: React.FC = () => {
     }
   };
 
+  /* ── Delete Invoice ── */
+  const handleDeleteInvoice = async (invoice: SalesInvoiceItem) => {
+    if (
+      !window.confirm(
+        `Are you ABSOLUTELY sure you want to permanently delete invoice ${invoice.invoiceNumber}?\n\nThis will completely remove the record, restore stock, and reverse customer outstanding.`
+      )
+    ) {
+      return;
+    }
+
+    try {
+      await api.delete(`/sales/${invoice.id}`);
+      showSuccessToast(`Invoice ${invoice.invoiceNumber} deleted permanently.`);
+      fetchInvoices();
+      fetchProducts();
+      fetchCustomers();
+      if (viewInvoiceModal?.id === invoice.id) {
+        setViewInvoiceModal(null);
+      }
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'Failed to delete invoice.');
+    }
+  };
+
   /* ── Note: WhatsApp is handled through the RashidiStarInvoice modal ── */
 
   /* ── Filtered Invoices ── */
@@ -779,6 +804,15 @@ export const SalesPage: React.FC = () => {
                                 <span>Cancel</span>
                               </button>
                             )}
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteInvoice(inv)}
+                              className="inline-flex items-center gap-1 px-2 py-1 bg-transparent hover:bg-rose-50 text-slate-400 hover:text-rose-700 font-bold rounded-md transition-colors cursor-pointer text-xs"
+                              title="Delete permanently"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                              <span>Delete</span>
+                            </button>
                           </div>
                         </td>
                       </tr>
@@ -908,6 +942,14 @@ export const SalesPage: React.FC = () => {
                           <Ban className="w-4 h-4" />
                         </button>
                       )}
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteInvoice(inv)}
+                        className="px-2.5 py-1.5 text-rose-700 hover:bg-rose-50 rounded-lg text-xs font-bold"
+                        title="Delete"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
                     </div>
                   </div>
                 );

@@ -8,6 +8,7 @@ import {
   UseGuards,
   Request,
   ParseIntPipe,
+  Delete,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard.js';
 import { SuppliersService, CreateSupplierDto, UpdateSupplierDto } from './suppliers.service.js';
@@ -44,5 +45,10 @@ export class SuppliersController {
     @Request() req: any,
   ) {
     return this.suppliersService.update(id, dto, req.user);
+  }
+
+  @Delete(':id')
+  async deleteSupplier(@Param('id', ParseIntPipe) id: number, @Request() req: any) {
+    return this.suppliersService.delete(id, req.user);
   }
 }

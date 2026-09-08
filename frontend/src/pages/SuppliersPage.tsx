@@ -16,6 +16,8 @@ import {
   Building,
   RefreshCw,
   Upload,
+  History,
+  Trash2,
 } from 'lucide-react';
 import { CsvImportModal } from '../components/common/CsvImportModal';
 
@@ -119,14 +121,33 @@ export const SuppliersPage: React.FC = () => {
 
   /* ── Open Edit Modal ── */
   const handleOpenEdit = (sup: SupplierItem) => {
+    setEditSupplier(sup);
     setName(sup.name);
     setContactPerson(sup.contactPerson || '');
     setPhone(sup.phone || '');
-    setCountry(sup.country || 'China');
+    setCountry(sup.country || '');
     setAddress(sup.address || '');
     setIsActive(sup.isActive);
     setFormError('');
-    setEditSupplier(sup);
+    setShowAddModal(true);
+  };
+
+  const handleDeleteSupplier = async (sup: SupplierItem) => {
+    if (
+      !window.confirm(
+        `Are you ABSOLUTELY sure you want to permanently delete supplier "${sup.name}"?\n\nThis will completely remove them from the system.`
+      )
+    ) {
+      return;
+    }
+
+    try {
+      await api.delete(`/suppliers/${sup.id}`);
+      showSuccessToast(`Supplier ${sup.name} deleted permanently.`);
+      fetchSuppliers();
+    } catch (err: any) {
+      showSuccessToast(err.response?.data?.message || 'Failed to delete supplier. They may have active purchase receipts.');
+    }
   };
 
   /* ── Save (Create / Update) ── */
@@ -426,14 +447,24 @@ export const SuppliersPage: React.FC = () => {
                     </td>
 
                     <td className="py-3.5 px-4 text-right">
-                      <button
-                        type="button"
-                        onClick={() => handleOpenEdit(sup)}
-                        className="inline-flex items-center gap-1 px-3 py-1.5 text-slate-700 hover:text-sky-700 hover:bg-sky-50 rounded-lg font-semibold text-xs border border-slate-300 hover:border-sky-300 transition-colors cursor-pointer"
-                      >
-                        <Pencil className="w-3.5 h-3.5" />
-                        <span>{t.common.edit}</span>
-                      </button>
+                      <div className="flex items-center justify-end gap-2">
+                        <button
+                          type="button"
+                          onClick={() => handleOpenEdit(sup)}
+                          className="inline-flex items-center gap-1 px-3 py-1.5 text-slate-700 hover:text-sky-700 hover:bg-sky-50 rounded-lg font-semibold text-xs border border-slate-300 hover:border-sky-300 transition-colors cursor-pointer"
+                        >
+                          <Pencil className="w-3.5 h-3.5" />
+                          <span>{t.common.edit}</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteSupplier(sup)}
+                          className="inline-flex items-center gap-1 px-3 py-1.5 text-slate-700 hover:text-rose-700 hover:bg-rose-50 rounded-lg font-semibold text-xs border border-slate-300 hover:border-rose-300 transition-colors cursor-pointer"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          <span>Delete</span>
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}

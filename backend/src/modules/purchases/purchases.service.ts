@@ -338,6 +338,113 @@ export class PurchasesService {
     return this.findOne(id);
   }
 
+  async deleteReceipt(id: number, user: any) {
+    await this.dataSource.transaction(async (manager) => {
+      const receipt = await manager.findOne(PurchaseReceipt, {
+        where: { id },
+        relations: { lines: { product: true }, supplier: true },
+      });
+
+      if (!receipt) {
+        throw new NotFoundException(`Purchase receipt with ID ${id} not found.`);
+      }
+
+      let payableDeducted = 0;
+      let paymentCreditRemaining = 0;
+
+      // If not cancelled, reverse stock and supplier balances
+      if (receipt.status !== 'CANCELLED') {
+        if (receipt.lines) {
+          // Check stock before deleting
+          for (const line of receipt.lines) {
+            const product = await manager.findOne(Product, {
+              where: { id: line.productId },
+              lock: { mode: 'pessimistic_write' },
+            });
+            if (product) {
+              const currentStock = Number(product.currentStockPcs || 0);
+              const deductPcs = Number(line.totalPcs || 0);
+              if (currentStock < deductPcs) {
+                throw new BadRequestException(
+                  `Cannot delete purchase: product "${product.nameEn}" (${product.articleNumber}) only has ${currentStock} Pcs in stock, but ${deductPcs} Pcs were received. Some stock has already been sold.`,
+                );
+              }
+            }
+          }
+
+          // Reverse stock
+          for (const line of receipt.lines) {
+            const product = await manager.findOne(Product, {
+              where: { id: line.productId },
+              lock: { mode: 'pessimistic_write' },
+            });
+            if (product) {
+              const currentStock = Number(product.currentStockPcs || 0);
+              const deductPcs = Number(line.totalPcs || 0);
+              const newStock = currentStock - deductPcs;
+              product.currentStockPcs = newStock;
+              await manager.save(Product, product);
+
+              const ledger = manager.create(StockLedger, {
+                productId: product.id,
+                quantityChangePcs: -deductPcs,
+                balanceAfterPcs: newStock,
+                sourceType: 'RECEIVE_SHIPMENT',
+                sourceId: receipt.id,
+                sourceReference: `DELETE-${receipt.receiptNumber}`,
+                notes: `Purchase ${receipt.receiptNumber} deleted — stock reversed`,
+                performedBy: user?.displayName || 'Owner',
+              });
+              await manager.save(StockLedger, ledger);
+            }
+          }
+        }
+
+        // Reverse supplier balance
+        if (receipt.supplier && receipt.supplierId) {
+          const supplier = await manager.findOne(Supplier, {
+            where: { id: receipt.supplierId },
+            lock: { mode: 'pessimistic_write' },
+          });
+          if (supplier) {
+            const currentPayable = Number(supplier.totalPayable || 0);
+            const receiptTotal = Number(receipt.totalAmountKd || 0);
+
+            if (currentPayable >= receiptTotal) {
+              supplier.totalPayable = Number((currentPayable - receiptTotal).toFixed(3));
+              payableDeducted = receiptTotal;
+            } else {
+              payableDeducted = currentPayable;
+              paymentCreditRemaining = Number((receiptTotal - currentPayable).toFixed(3));
+              supplier.totalPayable = 0;
+            }
+            await manager.save(Supplier, supplier);
+          }
+        }
+      }
+
+      await manager.remove(PurchaseReceipt, receipt);
+
+      // Audit log
+      await this.auditService.log({
+        action: 'DELETE',
+        entityType: 'PURCHASE_RECEIPT',
+        entityId: String(id),
+        performedBy: user?.displayName || 'Owner',
+        details: {
+          receiptNumber: receipt.receiptNumber,
+          totalAmountKd: Number(receipt.totalAmountKd),
+          supplierName: receipt.supplier?.name,
+          payableDeducted,
+          paymentCreditRemaining,
+          reason: 'Purchase receipt hard deleted',
+        },
+      });
+    });
+
+    return { success: true, message: `Purchase receipt ${id} deleted successfully` };
+  }
+
   private formatReceipt(receipt: PurchaseReceipt) {
     const totalPcs = Number(receipt.totalPcs || 0);
     const dozen = Math.floor(totalPcs / 12);
