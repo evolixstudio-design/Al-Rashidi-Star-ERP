@@ -114,7 +114,10 @@ export class SalesService {
         const pieces = Number(item.pieces || 0);
         const totalPcs = dozen * 12 + pieces;
         const unitPriceKd = Number(item.unitPriceKd || 0);
-        const lineTotalKd = totalPcs * unitPriceKd;
+        
+        // Price is per dozen: dozQty = dozen + (pieces / 12)
+        const dozQty = dozen + (pieces / 12);
+        const lineTotalKd = dozQty * unitPriceKd;
 
         if (totalPcs <= 0) {
           throw new BadRequestException('Each line must have a quantity greater than zero.');

@@ -256,7 +256,9 @@ export const PurchasesPage: React.FC = () => {
     }
 
     const cost = Number(lineUnitCostKd || 0);
-    const lineTotal = Number((totalPcs * cost).toFixed(3));
+    // Price is per dozen: dozQty = dozen + (pieces / 12)
+    const dozQty = doz + (pcs / 12);
+    const lineTotal = Number((dozQty * cost).toFixed(3));
 
     const newLine: ShipmentLineDraft = {
       productId: selectedProduct ? selectedProduct.id : undefined,
@@ -915,6 +917,7 @@ export const PurchasesPage: React.FC = () => {
                           min="0"
                           value={lineDozen}
                           onChange={(e) => setLineDozen(e.target.value === '' ? '' : parseInt(e.target.value, 10))}
+                          onFocus={(e) => e.target.select()}
                           onKeyDown={(e) => {
                             if (e.key === 'Enter') {
                               e.preventDefault();
@@ -937,6 +940,7 @@ export const PurchasesPage: React.FC = () => {
                           max="11"
                           value={linePieces}
                           onChange={(e) => setLinePieces(e.target.value === '' ? '' : parseInt(e.target.value, 10))}
+                          onFocus={(e) => e.target.select()}
                           onKeyDown={(e) => {
                             if (e.key === 'Enter') {
                               e.preventDefault();
@@ -964,7 +968,7 @@ export const PurchasesPage: React.FC = () => {
                       <div className="flex items-center gap-3">
                         <div>
                           <label className="block text-xs font-bold text-slate-700 mb-0.5">
-                            Per Piece Cost (K.D.) <span className="text-xs font-normal text-slate-500">(Optional)</span>
+                            Cost per Dozen (K.D.) <span className="text-xs font-normal text-slate-500">(Optional)</span>
                           </label>
                           <input
                             type="number"
@@ -972,6 +976,7 @@ export const PurchasesPage: React.FC = () => {
                             min="0"
                             value={lineUnitCostKd}
                             onChange={(e) => setLineUnitCostKd(e.target.value === '' ? '' : parseFloat(e.target.value))}
+                            onFocus={(e) => e.target.select()}
                             onKeyDown={(e) => {
                               if (e.key === 'Enter') {
                                 e.preventDefault();

@@ -287,7 +287,9 @@ export const SalesPage: React.FC = () => {
       return;
     }
 
-    const lineTotalKd = Number((totalPcs * unitPrice).toFixed(3));
+    // Price is per dozen: dozQty = dozen + (pieces / 12)
+    const dozQty = doz + (pcs / 12);
+    const lineTotalKd = Number((dozQty * unitPrice).toFixed(3));
 
     setLineItems([
       ...lineItems,
@@ -1168,6 +1170,7 @@ export const SalesPage: React.FC = () => {
                           min="0"
                           value={inputDozen}
                           onChange={(e) => setInputDozen(e.target.value === '' ? '' : Number(e.target.value))}
+                          onFocus={(e) => e.target.select()}
                           placeholder="0"
                           className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-bold text-slate-900 text-center"
                         />
@@ -1181,6 +1184,7 @@ export const SalesPage: React.FC = () => {
                           max="11"
                           value={inputPieces}
                           onChange={(e) => setInputPieces(e.target.value === '' ? '' : Number(e.target.value))}
+                          onFocus={(e) => e.target.select()}
                           placeholder="0"
                           className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-bold text-slate-900 text-center"
                         />
@@ -1188,7 +1192,7 @@ export const SalesPage: React.FC = () => {
 
                       <div>
                         <label className="block text-xs font-bold text-slate-700 mb-1">
-                          Selling Price (K.D.) <span className="text-rose-600">*</span>
+                          Price per Dozen (K.D.) <span className="text-rose-600">*</span>
                         </label>
                         <input
                           type="number"
@@ -1196,6 +1200,7 @@ export const SalesPage: React.FC = () => {
                           min="0"
                           value={inputUnitPrice}
                           onChange={(e) => setInputUnitPrice(e.target.value === '' ? '' : Number(e.target.value))}
+                          onFocus={(e) => e.target.select()}
                           placeholder="0.000"
                           className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-bold text-slate-900 text-right font-mono"
                         />
@@ -1235,7 +1240,7 @@ export const SalesPage: React.FC = () => {
                                 [{item.articleNumber}] {item.productName}
                               </div>
                               <div className="text-[11px] text-slate-500">
-                                {item.dozen} Doz {item.pieces} Pcs ({item.totalPcs} Pcs) @ {item.unitPriceKd.toFixed(3)} K.D.
+                                {item.dozen} Doz {item.pieces} Pcs ({item.totalPcs} Pcs) @ {item.unitPriceKd.toFixed(3)} K.D./Doz
                               </div>
                             </div>
                             <div className="text-right">

@@ -503,10 +503,10 @@ export const RashidiStarInvoiceSheet: React.FC<RashidiStarInvoiceSheetProps> = (
                 }}
               >
                 <div style={{ fontFamily: "'Amiri', 'Cairo', 'Traditional Arabic', Tahoma, sans-serif", fontSize: '11px', lineHeight: '14px' }}>
-                  سعر الوحدة
+                  سعر الدرزن
                 </div>
                 <div style={{ fontSize: '9.5px', fontWeight: 800, lineHeight: '13px' }}>
-                  Unit Price
+                  Price/Doz
                 </div>
               </div>
               <div

@@ -92,7 +92,10 @@ export class PurchasesService {
         const pieces = Number(item.pieces || 0);
         const totalPcs = dozen * 12 + pieces;
         const unitCostKd = Number(item.unitCostKd || 0);
-        const lineTotalKd = totalPcs * unitCostKd;
+        
+        // Cost is per dozen: dozQty = dozen + (pieces / 12)
+        const dozQty = dozen + (pieces / 12);
+        const lineTotalKd = dozQty * unitCostKd;
 
         if (totalPcs <= 0) {
           throw new BadRequestException(
