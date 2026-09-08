@@ -78,8 +78,22 @@ export const AppFooter: React.FC<AppFooterProps> = ({ variant = 'embedded' }) =>
           </button>
         </div>
 
-        {/* System Version & Status Indicator */}
-        <div className="flex items-center gap-2">
+        {/* System Version, Developer Credit & Status Indicator */}
+        <div className="flex flex-wrap items-center justify-center gap-3">
+          <div className="text-[11px] text-slate-500">
+            <span>Developed by </span>
+            <a
+              href="https://evolix-studio.in"
+              target="_blank"
+              rel="noopener noreferrer"
+              className={`font-semibold underline underline-offset-2 transition-colors ${
+                isDark ? 'text-sky-400 hover:text-sky-300' : 'text-sky-600 hover:text-sky-700'
+              }`}
+            >
+              Evolix Studio
+            </a>
+          </div>
+
           <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 text-[11px] font-medium">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
             <span>Online • v1.2.0</span>

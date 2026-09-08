@@ -163,7 +163,7 @@ export const LegalModal: React.FC = () => {
                   5. Intellectual Property & Custom Engineering
                 </h3>
                 <p>
-                  The custom software architecture, visual interface, bilingual typography system, and workflow algorithms were developed by <strong>Evolix Studio</strong> for Al-Rashidi Star. Unauthorized reverse engineering, distribution, or duplication of source code is strictly prohibited.
+                  The custom software architecture, visual interface, bilingual typography system, and workflow algorithms were developed by <strong>Evolix Studio</strong> (<a href="https://evolix-studio.in" target="_blank" rel="noopener noreferrer" className="text-sky-600 hover:text-sky-700 underline font-semibold">evolix-studio.in</a>) for Al-Rashidi Star. Unauthorized reverse engineering, distribution, or duplication of source code is strictly prohibited.
                 </p>
               </section>
 

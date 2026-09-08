@@ -113,5 +113,5 @@ This repository includes pre-configured `netlify.toml` files at both the reposit
 
 ## 📄 License & Legal
 
-Proprietary commercial software engineered by **Evolix Studio** for **Al-Rashidi Star General Trading Co. W.L.L.** (State of Kuwait).  
+Proprietary commercial software engineered by [**Evolix Studio**](https://evolix-studio.in) for **Al-Rashidi Star General Trading Co. W.L.L.** (State of Kuwait).  
 All rights reserved © 2026.

@@ -66,7 +66,7 @@ export class ProductsService implements OnModuleInit {
   ) {}
 
   async onModuleInit() {
-    await this.seedInitialInventory();
+    // Demo inventory seeding disabled for clean production deployment
   }
 
   private async seedInitialInventory() {

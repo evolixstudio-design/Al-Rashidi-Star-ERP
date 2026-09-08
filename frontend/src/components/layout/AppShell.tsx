@@ -200,6 +200,17 @@ export const AppShell: React.FC = () => {
                 Privacy
               </button>
             </div>
+            <div className="text-[10px] text-slate-400">
+              Developed by{' '}
+              <a
+                href="https://evolix-studio.in"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-sky-400 hover:text-sky-300 font-semibold underline underline-offset-2"
+              >
+                Evolix Studio
+              </a>
+            </div>
             <div className="text-[10px] text-slate-500">
               {t.common.version} • Kuwait ERP
             </div>
@@ -249,50 +260,63 @@ export const AppShell: React.FC = () => {
               </div>
 
               {/* Mobile Drawer Legal & Help Footer */}
-              <div className="pt-3 border-t border-slate-800 text-[11px] text-slate-400 flex flex-wrap items-center justify-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setMobileMenuOpen(false);
-                    openFaq();
-                  }}
-                  className="hover:text-sky-400 transition-colors"
-                >
-                  Help & FAQ
-                </button>
-                <span>•</span>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setMobileMenuOpen(false);
-                    openTerms();
-                  }}
-                  className="hover:text-sky-400 transition-colors"
-                >
-                  Terms
-                </button>
-                <span>•</span>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setMobileMenuOpen(false);
-                    openPrivacy();
-                  }}
-                  className="hover:text-sky-400 transition-colors"
-                >
-                  Privacy
-                </button>
-                <span>•</span>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setMobileMenuOpen(false);
-                    openCookieSettings();
-                  }}
-                  className="hover:text-sky-400 transition-colors"
-                >
-                  Cookies
-                </button>
+              <div className="pt-3 border-t border-slate-800 text-[11px] text-slate-400 flex flex-col items-center justify-center gap-2">
+                <div className="flex flex-wrap items-center justify-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMobileMenuOpen(false);
+                      openFaq();
+                    }}
+                    className="hover:text-sky-400 transition-colors"
+                  >
+                    Help & FAQ
+                  </button>
+                  <span>•</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMobileMenuOpen(false);
+                      openTerms();
+                    }}
+                    className="hover:text-sky-400 transition-colors"
+                  >
+                    Terms
+                  </button>
+                  <span>•</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMobileMenuOpen(false);
+                      openPrivacy();
+                    }}
+                    className="hover:text-sky-400 transition-colors"
+                  >
+                    Privacy
+                  </button>
+                  <span>•</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMobileMenuOpen(false);
+                      openCookieSettings();
+                    }}
+                    className="hover:text-sky-400 transition-colors"
+                  >
+                    Cookies
+                  </button>
+                </div>
+                <div className="text-[10px] text-slate-400">
+                  Developed by{' '}
+                  <a
+                    href="https://evolix-studio.in"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-sky-400 hover:text-sky-300 font-semibold underline underline-offset-2"
+                  >
+                    Evolix Studio
+                  </a>
+                </div>
               </div>
             </div>
           </div>

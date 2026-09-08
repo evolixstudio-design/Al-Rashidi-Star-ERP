@@ -306,6 +306,17 @@ export const LoginPage: React.FC = () => {
             Cookie Preferences
           </button>
         </div>
+        <div className="text-xs text-slate-500">
+          <span>Developed by </span>
+          <a
+            href="https://evolix-studio.in"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-semibold text-sky-600 hover:text-sky-700 underline underline-offset-2 transition-colors"
+          >
+            Evolix Studio
+          </a>
+        </div>
         <div className="text-[11px] text-slate-400">
           Rashidi Star ERP • State of Kuwait • {t.app.copyright}
         </div>

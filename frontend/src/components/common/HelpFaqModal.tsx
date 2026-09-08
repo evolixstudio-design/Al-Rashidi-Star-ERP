@@ -270,6 +270,17 @@ export const HelpFaqModal: React.FC = () => {
                     <span>evolixstudio@gmail.com</span>
                   </div>
                   <div className="flex items-center gap-1.5">
+                    <ExternalLink className="w-3.5 h-3.5 text-sky-400" />
+                    <a
+                      href="https://evolix-studio.in"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-sky-400 hover:text-sky-300 underline font-semibold"
+                    >
+                      evolix-studio.in
+                    </a>
+                  </div>
+                  <div className="flex items-center gap-1.5">
                     <MapPin className="w-3.5 h-3.5 text-sky-400" />
                     <span>Salem Al Mubarak St, Al-Salmiya, Kuwait</span>
                   </div>
