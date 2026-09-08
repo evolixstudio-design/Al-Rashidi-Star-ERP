@@ -20,6 +20,7 @@ import {
   Sparkles,
   History,
   Trash2,
+  Ban,
 } from 'lucide-react';
 import { TransactionAuditModal } from '../components/common/TransactionAuditModal';
 

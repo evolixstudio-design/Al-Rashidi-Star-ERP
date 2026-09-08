@@ -16,7 +16,6 @@ import {
   Building,
   RefreshCw,
   Upload,
-  History,
   Trash2,
 } from 'lucide-react';
 import { CsvImportModal } from '../components/common/CsvImportModal';
