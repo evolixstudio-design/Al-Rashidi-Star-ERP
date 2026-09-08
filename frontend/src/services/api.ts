@@ -1,9 +1,11 @@
 import axios from 'axios';
 
 // Support VITE_API_URL for production deployments (e.g. Netlify -> Render backend)
-const rawApiUrl = import.meta.env.VITE_API_URL;
+const rawApiUrl = (import.meta.env.VITE_API_URL as string | undefined)?.trim();
 const baseURL = rawApiUrl
-  ? `${rawApiUrl.replace(/\/+$/, '')}/api`
+  ? (rawApiUrl.replace(/\/+$/, '').endsWith('/api')
+      ? rawApiUrl.replace(/\/+$/, '')
+      : `${rawApiUrl.replace(/\/+$/, '')}/api`)
   : '/api';
 
 const api = axios.create({
