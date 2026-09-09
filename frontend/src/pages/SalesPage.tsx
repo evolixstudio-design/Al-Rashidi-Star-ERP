@@ -32,6 +32,7 @@ interface CustomerOption {
   name: string;
   nameAr?: string;
   phone?: string;
+  address?: string;
   totalOutstandingKd: number;
 }
 
@@ -151,6 +152,15 @@ export const SalesPage: React.FC = () => {
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
 
+  // Combobox states
+  const [customerSearchQuery, setCustomerSearchQuery] = useState('');
+  const [isCustomerDropdownOpen, setIsCustomerDropdownOpen] = useState(false);
+  const [customerFocusedIndex, setCustomerFocusedIndex] = useState(-1);
+
+  const [productSearchQuery, setProductSearchQuery] = useState('');
+  const [isProductDropdownOpen, setIsProductDropdownOpen] = useState(false);
+  const [productFocusedIndex, setProductFocusedIndex] = useState(-1);
+
   /* ── Data Fetching ── */
   const fetchInvoices = useCallback(async () => {
     try {
@@ -209,6 +219,52 @@ export const SalesPage: React.FC = () => {
   };
 
   /* ── Calculation Helpers ── */
+  const filteredCustomers = useMemo(() => {
+    if (!customerSearchQuery) return customers;
+    const q = customerSearchQuery.toLowerCase();
+    return customers.filter((c) =>
+      c.name.toLowerCase().includes(q) || (c.phone && c.phone.includes(q))
+    );
+  }, [customers, customerSearchQuery]);
+
+  const filteredProducts = useMemo(() => {
+    const stockFiltered = products.filter((p) => (p.currentStockPcs || 0) > 0);
+    if (!productSearchQuery) return stockFiltered;
+    const q = productSearchQuery.toLowerCase();
+    return stockFiltered.filter(
+      (p) =>
+        p.nameEn.toLowerCase().includes(q) || p.articleNumber.toLowerCase().includes(q)
+    );
+  }, [products, productSearchQuery]);
+
+  const handleCustomerSelect = (customer: CustomerOption | null) => {
+    if (customer) {
+      setSelectedCustomerId(customer.id);
+      setCustomerSearchQuery(customer.name);
+      setCustomCustomerName(customer.name);
+      setCustomPhone(customer.phone || '');
+      setCustomAddress(customer.address || '');
+    } else {
+      setSelectedCustomerId('');
+      setCustomerSearchQuery('');
+      setCustomCustomerName('');
+      setCustomPhone('');
+      setCustomAddress('');
+    }
+    setIsCustomerDropdownOpen(false);
+  };
+
+  const handleProductSelectCombo = (product: ProductOption | null) => {
+    if (product) {
+      handleProductSelect(product.id);
+      setProductSearchQuery(`${product.nameEn} (${product.articleNumber})`);
+    } else {
+      handleProductSelect('');
+      setProductSearchQuery('');
+    }
+    setIsProductDropdownOpen(false);
+  };
+
   const grandTotalAmount = useMemo(() => {
     return lineItems.reduce((sum, item) => sum + item.lineTotalKd, 0);
   }, [lineItems]);
@@ -308,6 +364,7 @@ export const SalesPage: React.FC = () => {
 
     // Reset entry inputs
     setActiveProductId('');
+    setProductSearchQuery('');
     setInputDozen(1);
     setInputPieces(0);
     setInputUnitPrice('');
@@ -337,6 +394,10 @@ export const SalesPage: React.FC = () => {
     setAmountReceivedKd(0);
     setSubmitError('');
     setProductEntryError('');
+    setCustomerSearchQuery('');
+    setIsCustomerDropdownOpen(false);
+    setProductSearchQuery('');
+    setIsProductDropdownOpen(false);
     setShowWizard(true);
   };
 
@@ -1012,33 +1073,88 @@ export const SalesPage: React.FC = () => {
                   </div>
 
                   <div className="space-y-3">
-                    {/* Existing Customer Selector */}
-                    <div>
+                    {/* Existing Customer Search Combobox */}
+                    <div className="relative">
                       <label className="block text-xs font-bold text-slate-700 mb-1">
-                        Select Existing Customer <span className="text-slate-400 font-normal">(Optional)</span>
+                        Search Existing Customer <span className="text-slate-400 font-normal">(Optional)</span>
                       </label>
-                      <select
-                        value={selectedCustomerId}
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          setSelectedCustomerId(val ? Number(val) : '');
-                          if (val) {
-                            const c = customers.find((cust) => cust.id === Number(val));
-                            if (c) {
-                              setCustomCustomerName(c.name);
-                              setCustomPhone(c.phone || '');
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                        <input
+                          type="text"
+                          placeholder="Search by Customer Name or Phone..."
+                          value={customerSearchQuery}
+                          onChange={(e) => {
+                            setCustomerSearchQuery(e.target.value);
+                            setIsCustomerDropdownOpen(true);
+                            setCustomerFocusedIndex(-1);
+                            if (selectedCustomerId) {
+                              setSelectedCustomerId('');
                             }
-                          }
-                        }}
-                        className="w-full px-3.5 py-2 bg-white border border-slate-300 rounded-xl text-xs font-medium text-slate-900 focus:ring-2 focus:ring-slate-900/10 focus:border-slate-800"
-                      >
-                        <option value="">— Walk-in Customer (Default) —</option>
-                        {customers.map((c) => (
-                          <option key={c.id} value={c.id}>
-                            {c.name} {c.phone ? `(${c.phone})` : ''}
-                          </option>
-                        ))}
-                      </select>
+                          }}
+                          onFocus={() => setIsCustomerDropdownOpen(true)}
+                          onBlur={() => setTimeout(() => setIsCustomerDropdownOpen(false), 200)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'ArrowDown') {
+                              e.preventDefault();
+                              setCustomerFocusedIndex((prev) => (prev < filteredCustomers.length - 1 ? prev + 1 : prev));
+                            } else if (e.key === 'ArrowUp') {
+                              e.preventDefault();
+                              setCustomerFocusedIndex((prev) => (prev > 0 ? prev - 1 : prev));
+                            } else if (e.key === 'Enter') {
+                              e.preventDefault();
+                              if (customerFocusedIndex >= 0 && customerFocusedIndex < filteredCustomers.length) {
+                                handleCustomerSelect(filteredCustomers[customerFocusedIndex]);
+                              }
+                            } else if (e.key === 'Escape') {
+                              setIsCustomerDropdownOpen(false);
+                            }
+                          }}
+                          className="w-full pl-9 pr-8 py-2 bg-white border border-slate-300 rounded-xl text-xs font-medium text-slate-900 focus:ring-2 focus:ring-slate-900/10 focus:border-slate-800"
+                        />
+                        {customerSearchQuery && (
+                          <button
+                            type="button"
+                            onClick={() => handleCustomerSelect(null)}
+                            className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600 cursor-pointer"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
+                      
+                      {isCustomerDropdownOpen && (
+                        <div className="absolute z-10 w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg max-h-60 overflow-auto">
+                          {filteredCustomers.length === 0 ? (
+                            <div className="p-3 text-xs text-slate-500 text-center">No customers found.</div>
+                          ) : (
+                            filteredCustomers.map((c, idx) => (
+                              <div
+                                key={c.id}
+                                onMouseDown={(e) => {
+                                  e.preventDefault();
+                                  handleCustomerSelect(c);
+                                }}
+                                onMouseEnter={() => setCustomerFocusedIndex(idx)}
+                                className={`p-2.5 cursor-pointer border-b border-slate-50 last:border-0 ${
+                                  customerFocusedIndex === idx ? 'bg-slate-100' : 'hover:bg-slate-50'
+                                }`}
+                              >
+                                <div className="font-bold text-slate-900 text-xs">{c.name}</div>
+                                <div className="flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-slate-500 mt-0.5">
+                                  {c.phone && <span>{c.phone}</span>}
+                                  {c.address && <span className="truncate max-w-[200px]">{c.address}</span>}
+                                  {(c.totalOutstandingKd || 0) > 0 && (
+                                    <span className="text-amber-600 font-semibold">
+                                      Outstanding: {(c.totalOutstandingKd || 0).toFixed(3)} K.D.
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            ))
+                          )}
+                        </div>
+                      )}
                     </div>
 
                     {/* Or Manual Customer Name */}
@@ -1157,29 +1273,90 @@ export const SalesPage: React.FC = () => {
                       </div>
                     )}
 
-                    {/* Article / Product Search Selector */}
-                    <div>
+                    {/* Article / Product Search Combobox */}
+                    <div className="relative">
                       <label className="block text-xs font-bold text-slate-700 mb-1">
                         Search Article / Product <span className="text-rose-600">*</span>
                       </label>
-                      <select
-                        value={activeProductId}
-                        onChange={(e) => handleProductSelect(e.target.value ? Number(e.target.value) : '')}
-                        className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-xs font-semibold text-slate-900 focus:ring-2 focus:ring-slate-900/10 focus:border-slate-800"
-                      >
-                        <option value="">— Select Product by Article No. or Name —</option>
-                        {products
-                          .filter((p) => (p.currentStockPcs || 0) > 0)
-                          .map((p) => {
-                            const doz = Math.floor((p.currentStockPcs || 0) / 12);
-                            const pcs = (p.currentStockPcs || 0) % 12;
-                            return (
-                              <option key={p.id} value={p.id}>
-                                [{p.articleNumber}] {p.nameEn} — Avail: {doz} Doz {pcs} Pcs ({p.currentStockPcs} Pcs)
-                              </option>
-                            );
-                          })}
-                      </select>
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                        <input
+                          type="text"
+                          placeholder="Search by product name or article no..."
+                          value={productSearchQuery}
+                          onChange={(e) => {
+                            setProductSearchQuery(e.target.value);
+                            setIsProductDropdownOpen(true);
+                            setProductFocusedIndex(-1);
+                            if (activeProductId) {
+                              handleProductSelect('');
+                            }
+                          }}
+                          onFocus={() => setIsProductDropdownOpen(true)}
+                          onBlur={() => setTimeout(() => setIsProductDropdownOpen(false), 200)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'ArrowDown') {
+                              e.preventDefault();
+                              setProductFocusedIndex((prev) => (prev < filteredProducts.length - 1 ? prev + 1 : prev));
+                            } else if (e.key === 'ArrowUp') {
+                              e.preventDefault();
+                              setProductFocusedIndex((prev) => (prev > 0 ? prev - 1 : prev));
+                            } else if (e.key === 'Enter') {
+                              e.preventDefault();
+                              if (productFocusedIndex >= 0 && productFocusedIndex < filteredProducts.length) {
+                                handleProductSelectCombo(filteredProducts[productFocusedIndex]);
+                              }
+                            } else if (e.key === 'Escape') {
+                              setIsProductDropdownOpen(false);
+                            }
+                          }}
+                          className="w-full pl-9 pr-8 py-2.5 bg-white border border-slate-300 rounded-xl text-xs font-semibold text-slate-900 focus:ring-2 focus:ring-slate-900/10 focus:border-slate-800"
+                        />
+                        {productSearchQuery && (
+                          <button
+                            type="button"
+                            onClick={() => handleProductSelectCombo(null)}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600 cursor-pointer"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
+                      
+                      {isProductDropdownOpen && (
+                        <div className="absolute z-10 w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg max-h-60 overflow-auto">
+                          {filteredProducts.length === 0 ? (
+                            <div className="p-3 text-xs text-slate-500 text-center">No products found.</div>
+                          ) : (
+                            filteredProducts.map((p, idx) => {
+                              const doz = Math.floor((p.currentStockPcs || 0) / 12);
+                              const pcs = (p.currentStockPcs || 0) % 12;
+                              return (
+                                <div
+                                  key={p.id}
+                                  onMouseDown={(e) => {
+                                    e.preventDefault();
+                                    handleProductSelectCombo(p);
+                                  }}
+                                  onMouseEnter={() => setProductFocusedIndex(idx)}
+                                  className={`p-2.5 cursor-pointer border-b border-slate-50 last:border-0 ${
+                                    productFocusedIndex === idx ? 'bg-slate-100' : 'hover:bg-slate-50'
+                                  }`}
+                                >
+                                  <div className="font-bold text-slate-900 text-xs">{p.nameEn}</div>
+                                  <div className="flex flex-wrap gap-x-3 gap-y-1 text-[11px] mt-0.5">
+                                    <span className="text-slate-500 font-mono">Article No: {p.articleNumber}</span>
+                                    <span className="text-emerald-700 font-semibold">
+                                      Available: {doz} Doz {pcs} Pcs
+                                    </span>
+                                    <span className="text-slate-400">({p.currentStockPcs} Pcs Total)</span>
+                                  </div>
+                                </div>
+                              );
+                            })
+                          )}
+                        </div>
+                      )}
                     </div>
 
                     {/* Available Stock Box */}
@@ -1490,6 +1667,7 @@ export const SalesPage: React.FC = () => {
                       onClick={() => {
                         // Quick Walk-in: skip straight to step 2 with Walk-in
                         setSelectedCustomerId('');
+                        setCustomerSearchQuery('');
                         setCustomCustomerName('Walk-in Customer');
                         setStep(2);
                       }}

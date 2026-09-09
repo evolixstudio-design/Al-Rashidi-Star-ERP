@@ -262,24 +262,41 @@ export class BackupService {
       for (const table of orderedTables) {
         const records = data[table];
         if (Array.isArray(records) && records.length > 0) {
-          for (const row of records) {
-            const columns = Object.keys(row).map((k) => `"${k}"`).join(', ');
-            const values = Object.values(row)
-              .map((val) => {
-                if (val === null || val === undefined) return 'NULL';
-                if (typeof val === 'number' || typeof val === 'boolean') return val;
-                if (typeof val === 'object') return `'${JSON.stringify(val).replace(/'/g, "''")}'`;
-                return `'${String(val).replace(/'/g, "''")}'`;
-              })
-              .join(', ');
-
+          const chunkSize = 100; // Insert 100 records at a time
+          for (let i = 0; i < records.length; i += chunkSize) {
+            const chunk = records.slice(i, i + chunkSize);
             try {
+              const columns = Object.keys(chunk[0]).map((k) => `"${k}"`).join(', ');
+              const valuesArray = chunk.map((row) => {
+                const values = Object.values(row).map((val) => {
+                  if (val === null || val === undefined) return 'NULL';
+                  if (typeof val === 'number' || typeof val === 'boolean') return val;
+                  if (typeof val === 'object') return `'${JSON.stringify(val).replace(/'/g, "''")}'`;
+                  return `'${String(val).replace(/'/g, "''")}'`;
+                }).join(', ');
+                return `(${values})`;
+              });
+              
               await manager.query(
-                `INSERT INTO "${table}" (${columns}) VALUES (${values}) ON CONFLICT DO NOTHING;`,
+                `INSERT INTO "${table}" (${columns}) VALUES ${valuesArray.join(', ')} ON CONFLICT DO NOTHING;`
               );
-              rowsRestored++;
+              rowsRestored += chunk.length;
             } catch (err: any) {
-              this.logger.warn(`Restore row warning on ${table}: ${err.message}`);
+              this.logger.warn(`Restore chunk warning on ${table}: ${err.message}`);
+              // Fallback to row-by-row if chunk insert fails due to one bad record
+              for (const row of chunk) {
+                try {
+                   const cols = Object.keys(row).map((k) => `"${k}"`).join(', ');
+                   const vals = Object.values(row).map((val) => {
+                     if (val === null || val === undefined) return 'NULL';
+                     if (typeof val === 'number' || typeof val === 'boolean') return val;
+                     if (typeof val === 'object') return `'${JSON.stringify(val).replace(/'/g, "''")}'`;
+                     return `'${String(val).replace(/'/g, "''")}'`;
+                   }).join(', ');
+                   await manager.query(`INSERT INTO "${table}" (${cols}) VALUES (${vals}) ON CONFLICT DO NOTHING;`);
+                   rowsRestored++;
+                } catch(e) {}
+              }
             }
           }
         }

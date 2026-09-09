@@ -14,6 +14,11 @@ async function bootstrap() {
     credentials: true,
   });
 
+  // Increase body limit for data import
+  const express = await import('express');
+  app.use(express.json({ limit: '50mb' }));
+  app.use(express.urlencoded({ limit: '50mb', extended: true }));
+
   // Global API route prefix
   app.setGlobalPrefix('api');
 
