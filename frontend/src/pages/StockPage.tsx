@@ -257,7 +257,7 @@ export const StockPage: React.FC = () => {
             </span>
           </div>
           <div className="mt-2 text-2xl font-bold text-slate-900">
-            KD {products.reduce((sum, p) => sum + (Number(p.currentStockPcs || 0) * Number(p.purchasePrice || 0)), 0).toFixed(3)}
+            KD {products.reduce((sum, p) => sum + ((Number(p.currentStockPcs || 0) / 12) * Number(p.purchasePrice || 0)), 0).toFixed(3)}
           </div>
           <div className="text-xs text-slate-400 mt-1">At purchase cost</div>
         </div>
