@@ -21,6 +21,8 @@ import {
   DollarSign,
   Trash2,
 } from 'lucide-react';
+import ProductThumbnail from '../components/common/ProductThumbnail';
+import ProductImageUpload from '../components/common/ProductImageUpload';
 
 /* ───────────────────── Types ───────────────────── */
 
@@ -46,6 +48,8 @@ interface ProductItem {
   };
   isLowStock: boolean;
   status: 'IN_STOCK' | 'LOW_STOCK' | 'OUT_OF_STOCK';
+  hasImage: boolean;
+  imageUpdatedAt?: string | null;
 }
 
 interface CategoryItem {
@@ -325,6 +329,7 @@ export const StockPage: React.FC = () => {
           <table className="w-full text-left border-collapse text-xs min-w-[850px]">
             <thead>
               <tr className="bg-slate-100 text-slate-800 border-b border-slate-300 font-bold uppercase tracking-wider text-[11px]">
+                <th className="py-2.5 px-3 w-14 text-center">Img</th>
                 <th className="py-2.5 px-3">{t.stock.articleNo}</th>
                 <th className="py-2.5 px-3">{t.stock.product}</th>
                 <th className="py-2.5 px-3 hidden md:table-cell">{t.stock.category}</th>
@@ -352,6 +357,16 @@ export const StockPage: React.FC = () => {
               ) : (
                 products.map((p) => (
                   <tr key={p.id} className="hover:bg-sky-50/50 transition-colors">
+                    <td className="py-2.5 px-3 text-center">
+                      <ProductThumbnail
+                        productId={p.id}
+                        articleNumber={p.articleNumber}
+                        productName={p.nameEn}
+                        hasImage={p.hasImage}
+                        imageUpdatedAt={p.imageUpdatedAt}
+                        size="md"
+                      />
+                    </td>
                     <td className="py-2.5 px-3 font-mono font-bold text-sky-800 whitespace-nowrap">
                       {p.articleNumber}
                     </td>
@@ -432,7 +447,7 @@ export const StockPage: React.FC = () => {
           onClose={() => setShowAddModal(false)}
           onSuccess={() => {
             onProductSaved();
-            showToast(t.stock.productCreated);
+            // Toast is handled in AddProductModal if image fails, so we won't overwrite it here unconditionally, actually we can just rely on AddProductModal to show the success toast.
             setShowAddModal(false);
           }}
         />
@@ -462,9 +477,9 @@ export const StockPage: React.FC = () => {
           onClose={() => setEditProduct(null)}
           onSuccess={() => {
             onProductSaved();
-            showToast(t.stock.productUpdated);
             setEditProduct(null);
           }}
+          onImageChanged={() => onProductSaved()}
         />
       )}
 
@@ -526,8 +541,10 @@ function AddProductModal({
     initialPieces: '0',
     notes: '',
   });
+  const [imageFile, setImageFile] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [_toastMsg, _setToastMsg] = useState('');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -538,7 +555,7 @@ function AddProductModal({
     setSaving(true);
     setError('');
     try {
-      await api.post('/products', {
+      const createdProd = await api.post('/products', {
         articleNumber: form.articleNumber.trim(),
         nameEn: form.nameEn.trim(),
         nameAr: form.nameAr.trim() || undefined,
@@ -552,6 +569,22 @@ function AddProductModal({
         initialPieces: Number(form.initialPieces) || 0,
         notes: form.notes.trim() || undefined,
       });
+
+      if (imageFile && createdProd.data?.id) {
+        try {
+          const formData = new FormData();
+          formData.append('image', imageFile);
+          await api.post(`/products/${createdProd.data.id}/image`, formData, {
+            headers: { 'Content-Type': 'multipart/form-data' },
+          });
+          alert('Product saved and image uploaded successfully.');
+        } catch (imgErr) {
+          alert('Product saved, but photo upload failed. You can upload the photo from Edit Product.');
+        }
+      } else {
+        alert('Product created successfully.');
+      }
+
       onSuccess();
     } catch (err: any) {
       setError(err.response?.data?.message || t.common.error);
@@ -586,6 +619,18 @@ function AddProductModal({
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="grid grid-cols-2 gap-3.5">
+            <div className="col-span-2">
+              <label className="block text-xs font-bold text-slate-700 mb-1">Product Image (Optional)</label>
+              <input
+                type="file"
+                accept="image/jpeg, image/png, image/webp"
+                onChange={(e) => setImageFile(e.target.files?.[0] || null)}
+                className="w-full px-3.5 py-2 bg-white border border-slate-300 rounded-xl text-slate-900 text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 shadow-xs transition-colors"
+              />
+            </div>
+          </div>
+
           <div className="grid grid-cols-2 gap-3.5">
             <FormField label={t.stock.articleNo} required>
               <input
@@ -775,6 +820,7 @@ function EditProductModal({
   categories,
   onClose,
   onSuccess,
+  onImageChanged,
 }: {
   t: any;
   lang: string;
@@ -782,7 +828,9 @@ function EditProductModal({
   categories: CategoryItem[];
   onClose: () => void;
   onSuccess: () => void;
+  onImageChanged: () => void;
 }) {
+  const [localProduct, setLocalProduct] = useState(product);
   const [form, setForm] = useState({
     nameEn: product.nameEn,
     nameAr: product.nameAr || '',
@@ -847,6 +895,32 @@ function EditProductModal({
             <span>{error}</span>
           </div>
         )}
+
+        <div className="flex items-center gap-4 mb-4 p-4 border border-slate-200 rounded-xl bg-slate-50">
+           <ProductThumbnail
+             productId={localProduct.id}
+             articleNumber={localProduct.articleNumber}
+             productName={localProduct.nameEn}
+             hasImage={localProduct.hasImage}
+             imageUpdatedAt={localProduct.imageUpdatedAt}
+             size="lg"
+           />
+           <div className="flex-1">
+             <h3 className="text-sm font-bold text-slate-900 mb-2">Product Photo</h3>
+             <ProductImageUpload
+               productId={localProduct.id}
+               hasImage={localProduct.hasImage}
+               onUploadSuccess={(newUpdatedAt) => {
+                 setLocalProduct({ ...localProduct, hasImage: true, imageUpdatedAt: newUpdatedAt });
+                 onImageChanged();
+               }}
+               onRemoveSuccess={() => {
+                 setLocalProduct({ ...localProduct, hasImage: false, imageUpdatedAt: null });
+                 onImageChanged();
+               }}
+             />
+           </div>
+        </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-2 gap-3.5">

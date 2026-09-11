@@ -7,19 +7,23 @@ import {
   Plus,
   Search,
   CheckCircle2,
-  AlertCircle,
   X,
   FileText,
   Printer,
   MessageCircle,
   DollarSign,
-  Calendar,
   Clock,
+  Calendar,
+  AlertTriangle,
+  AlertCircle,
   Layers,
   History,
 } from 'lucide-react';
 import { TransactionAuditModal } from '../components/common/TransactionAuditModal';
 import { openWhatsAppWithText } from '../services/whatsappService';
+
+import { normalizeSearchText } from '../utils/searchUtils';
+import { CustomerCombobox } from '../components/common/CustomerCombobox';
 
 /* ───────────────────── Types ───────────────────── */
 
@@ -29,15 +33,6 @@ interface CustomerOption {
   nameAr?: string;
   phone?: string;
   totalOutstandingKd: number;
-}
-
-interface PendingInvoiceOption {
-  id: number;
-  invoiceNumber: string;
-  invoiceDate: string;
-  grandTotalAmountKd: number;
-  amountReceivedKd: number;
-  balanceKd: number;
 }
 
 interface CustomerReceiptItem {
@@ -75,7 +70,6 @@ export const PaymentsPage: React.FC = () => {
   /* ── State ── */
   const [receipts, setReceipts] = useState<CustomerReceiptItem[]>([]);
   const [customers, setCustomers] = useState<CustomerOption[]>([]);
-  const [pendingInvoices, setPendingInvoices] = useState<PendingInvoiceOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [methodFilter, setMethodFilter] = useState('ALL');
@@ -95,6 +89,7 @@ export const PaymentsPage: React.FC = () => {
   const [referenceNo, setReferenceNo] = useState('');
   const [notes, setNotes] = useState('');
   const [formError, setFormError] = useState('');
+  const [pendingInvoices, setPendingInvoices] = useState<any[]>([]);
   const [saving, setSaving] = useState(false);
 
   /* ── Data Fetching ── */
@@ -272,10 +267,11 @@ export const PaymentsPage: React.FC = () => {
   /* ── Filtering & Totals ── */
   const filteredReceipts = useMemo(() => {
     return receipts.filter((r) => {
+      const q = normalizeSearchText(search);
       const matchesSearch =
-        r.receiptNumber.toLowerCase().includes(search.toLowerCase()) ||
-        (r.customer?.name && r.customer.name.toLowerCase().includes(search.toLowerCase())) ||
-        (r.invoice?.invoiceNumber && r.invoice.invoiceNumber.toLowerCase().includes(search.toLowerCase()));
+        normalizeSearchText(r.receiptNumber).includes(q) ||
+        normalizeSearchText(r.customer?.name).includes(q) ||
+        normalizeSearchText(r.invoice?.invoiceNumber).includes(q);
 
       if (!matchesSearch) return false;
       if (methodFilter !== 'ALL' && r.paymentMethod !== methodFilter) return false;
@@ -326,6 +322,7 @@ export const PaymentsPage: React.FC = () => {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 tracking-tight flex items-center gap-3">
+            <AlertTriangle className="w-5 h-5" />
             <div className="w-10 h-10 rounded-xl bg-slate-900 text-white flex items-center justify-center shadow-xs">
               <CreditCard size={20} className="text-emerald-400" />
             </div>
@@ -693,19 +690,11 @@ export const PaymentsPage: React.FC = () => {
                 <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
                   {t.payments.customer} *
                 </label>
-                <select
-                  required
+                <CustomerCombobox
+                  customers={customers}
                   value={customerId}
-                  onChange={(e) => setCustomerId(Number(e.target.value) || '')}
-                  className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900 transition-all"
-                >
-                  <option value="">-- Choose Customer --</option>
-                  {customers.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name} {c.nameAr ? `(${c.nameAr})` : ''} — Outstanding: {Number(c.totalOutstandingKd).toFixed(3)} KD
-                    </option>
-                  ))}
-                </select>
+                  onChange={(id) => setCustomerId(id)}
+                />
               </div>
 
               {/* Customer Outstanding Info */}

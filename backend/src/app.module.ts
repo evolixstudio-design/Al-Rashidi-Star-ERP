@@ -15,7 +15,12 @@ import { Customer } from './database/entities/customer.entity.js';
 import { SalesInvoice } from './database/entities/sales-invoice.entity.js';
 import { SalesInvoiceLine } from './database/entities/sales-invoice-line.entity.js';
 import { CustomerReceipt } from './database/entities/customer-receipt.entity.js';
+import { CustomerReceiptAllocation } from './database/entities/customer-receipt-allocation.entity.js';
+import { CustomerOpeningBalanceAdjustment } from './database/entities/customer-opening-balance-adjustment.entity.js';
 import { Expense } from './database/entities/expense.entity.js';
+import { SalesReturn } from './database/entities/sales-return.entity.js';
+import { SalesReturnLine } from './database/entities/sales-return-line.entity.js';
+import { CustomerRefund } from './database/entities/customer-refund.entity.js';
 import { AuditModule } from './modules/audit/audit.module.js';
 import { UsersModule } from './modules/users/users.module.js';
 import { SettingsModule } from './modules/settings/settings.module.js';
@@ -32,6 +37,7 @@ import { ReportsModule } from './modules/reports/reports.module.js';
 import { BackupModule } from './modules/backup/backup.module.js';
 import { DashboardModule } from './modules/dashboard/dashboard.module.js';
 import { WhatsAppModule } from './modules/whatsapp/whatsapp.module.js';
+import { SalesReturnsModule } from './modules/sales-returns/sales-returns.module.js';
 
 @Module({
   imports: [
@@ -78,9 +84,14 @@ import { WhatsAppModule } from './modules/whatsapp/whatsapp.module.js';
             SalesInvoice,
             SalesInvoiceLine,
             CustomerReceipt,
+            CustomerReceiptAllocation,
+            CustomerOpeningBalanceAdjustment,
             Expense,
+            SalesReturn,
+            SalesReturnLine,
+            CustomerRefund,
           ],
-          synchronize: true, // Automatically creates tables on first deploy to Neon
+          synchronize: false, // Changed from true to protect live production data
         };
       },
     }),
@@ -100,6 +111,7 @@ import { WhatsAppModule } from './modules/whatsapp/whatsapp.module.js';
     BackupModule,
     DashboardModule,
     WhatsAppModule,
+    SalesReturnsModule,
   ],
 })
 export class AppModule {}

@@ -141,7 +141,7 @@ function toPaymentWhatsAppType(mt: WhatsAppMessageType): PaymentWhatsAppType {
  * Log the WhatsApp action to the backend audit trail.
  */
 export async function logWhatsAppAction(
-  action: 'WHATSAPP_CHAT_OPENED' | 'WHATSAPP_REMINDER_OPENED',
+  action: 'WHATSAPP_CHAT_OPENED' | 'WHATSAPP_REMINDER_OPENED' | 'WHATSAPP_OUTSTANDING_BALANCE_REMINDER',
   invoiceNumber: string,
   customerName?: string,
   paymentStatus?: string,
@@ -174,7 +174,9 @@ export async function openWhatsAppChat(
   const url = buildWhatsAppUrl(paymentData, textType);
 
   const isReminder = messageType === 'PENDING_REMINDER' || messageType === 'PARTIAL_REMINDER';
-  const action = isReminder ? 'WHATSAPP_REMINDER_OPENED' : 'WHATSAPP_CHAT_OPENED';
+  const action = messageType === 'OUTSTANDING_BALANCE_REMINDER' 
+    ? 'WHATSAPP_OUTSTANDING_BALANCE_REMINDER' 
+    : (isReminder ? 'WHATSAPP_REMINDER_OPENED' : 'WHATSAPP_CHAT_OPENED');
 
   // 1. Log the action
   await logWhatsAppAction(

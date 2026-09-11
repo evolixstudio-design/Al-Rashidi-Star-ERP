@@ -35,4 +35,9 @@ export class PaymentsController {
   async receivePayment(@Body() dto: ReceivePaymentDto, @Request() req: any) {
     return this.paymentsService.receivePayment(dto, req.user);
   }
+
+  @Post(':id/cancel')
+  async cancelPayment(@Param('id', ParseIntPipe) id: number, @Request() req: any) {
+    return this.paymentsService.cancelPayment(id, req.user);
+  }
 }

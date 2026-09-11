@@ -51,6 +51,17 @@ export class DashboardService {
     const todaySalesKd = Number(todaySalesRaw?.total || 0);
     const todayInvoiceCount = Number(todaySalesRaw?.count || 0);
 
+    const { SalesReturn } = await import('../../database/entities/sales-return.entity.js');
+    const todayReturnsRaw = await this.invoiceRepo.manager
+      .createQueryBuilder(SalesReturn, 'sr')
+      .select('SUM(sr.totalReturnAmountKd)', 'total')
+      .where('sr.status = :status', { status: 'POSTED' })
+      .andWhere('sr.returnDate = :today', { today })
+      .getRawOne();
+      
+    const todayReturnsKd = Number(todayReturnsRaw?.total || 0);
+    const todayNetSalesKd = todaySalesKd - todayReturnsKd;
+
     // 2. Pending Payments (Total Outstanding from Customers)
     const pendingCustomersRaw = await this.customerRepo
       .createQueryBuilder('cust')
@@ -119,6 +130,17 @@ export class DashboardService {
 
     const monthSalesRevenueKd = Number(monthSalesRaw?.total || 0);
 
+    const monthReturnsRaw = await this.invoiceRepo.manager
+      .createQueryBuilder(SalesReturn, 'sr')
+      .select('SUM(sr.totalReturnAmountKd)', 'total')
+      .where('sr.status = :status', { status: 'POSTED' })
+      .andWhere('sr.returnDate >= :monthStart', { monthStart })
+      .andWhere('sr.returnDate <= :today', { today })
+      .getRawOne();
+      
+    const monthReturnsKd = Number(monthReturnsRaw?.total || 0);
+    const monthNetSalesRevenueKd = monthSalesRevenueKd - monthReturnsKd;
+
     // COGS for lines of posted invoices this month
     const monthCogsLines = await this.invoiceLineRepo
       .createQueryBuilder('line')
@@ -136,7 +158,23 @@ export class DashboardService {
       monthCogsKd += (pcs / 12) * costPerDozen;
     }
 
-    const monthGrossProfitKd = monthSalesRevenueKd - monthCogsKd;
+    const { SalesReturnLine } = await import('../../database/entities/sales-return-line.entity.js');
+    const monthReturnedCogsLines = await this.invoiceRepo.manager
+      .createQueryBuilder(SalesReturnLine, 'srl')
+      .innerJoin('srl.salesReturn', 'sr')
+      .innerJoinAndSelect('srl.product', 'prod')
+      .where('sr.status = :status', { status: 'POSTED' })
+      .andWhere('sr.returnDate >= :monthStart', { monthStart })
+      .andWhere('sr.returnDate <= :today', { today })
+      .getMany();
+      
+    let monthReturnedCogsKd = 0;
+    for (const line of monthReturnedCogsLines) {
+       monthReturnedCogsKd += (Number(line.returnTotalPcs || 0) / 12) * Number(line.product?.purchasePrice || 0);
+    }
+
+    const monthNetCogsKd = monthCogsKd - monthReturnedCogsKd;
+    const monthGrossProfitKd = monthNetSalesRevenueKd - monthNetCogsKd;
     const monthNetProfitKd = monthGrossProfitKd - thisMonthExpensesKd;
 
     // 8. Purchases This Month
@@ -154,7 +192,7 @@ export class DashboardService {
 
     return {
       todaySales: {
-        amountKd: Number(todaySalesKd.toFixed(3)),
+        amountKd: Number(todayNetSalesKd.toFixed(3)),
         invoiceCount: todayInvoiceCount,
       },
       pendingPayments: {
@@ -182,8 +220,8 @@ export class DashboardService {
         count: thisMonthExpensesCount,
       },
       thisMonthProfitLoss: {
-        salesRevenueKd: Number(monthSalesRevenueKd.toFixed(3)),
-        cogsKd: Number(monthCogsKd.toFixed(3)),
+        salesRevenueKd: Number(monthNetSalesRevenueKd.toFixed(3)),
+        cogsKd: Number(monthNetCogsKd.toFixed(3)),
         grossProfitKd: Number(monthGrossProfitKd.toFixed(3)),
         expensesKd: Number(thisMonthExpensesKd.toFixed(3)),
         netProfitKd: Number(monthNetProfitKd.toFixed(3)),
@@ -228,6 +266,15 @@ export class DashboardService {
       .andWhere('inv.invoiceDate <= :toDate', { toDate: todayStr })
       .getMany();
 
+    // Load posted returns in range
+    const { SalesReturn } = await import('../../database/entities/sales-return.entity.js');
+    const returns = await this.invoiceRepo.manager
+      .createQueryBuilder(SalesReturn, 'sr')
+      .where('sr.status = :status', { status: 'POSTED' })
+      .andWhere('sr.returnDate >= :fromDate', { fromDate: fromDateStr })
+      .andWhere('sr.returnDate <= :toDate', { toDate: todayStr })
+      .getMany();
+
     // Load invoice lines in range for COGS
     const invoiceLines = await this.invoiceLineRepo
       .createQueryBuilder('line')
@@ -236,6 +283,17 @@ export class DashboardService {
       .where('inv.status = :status', { status: 'POSTED' })
       .andWhere('inv.invoiceDate >= :fromDate', { fromDate: fromDateStr })
       .andWhere('inv.invoiceDate <= :toDate', { toDate: todayStr })
+      .getMany();
+
+    // Load return lines in range for COGS
+    const { SalesReturnLine } = await import('../../database/entities/sales-return-line.entity.js');
+    const returnLines = await this.invoiceRepo.manager
+      .createQueryBuilder(SalesReturnLine, 'srl')
+      .innerJoin('srl.salesReturn', 'sr')
+      .innerJoinAndSelect('srl.product', 'prod')
+      .where('sr.status = :status', { status: 'POSTED' })
+      .andWhere('sr.returnDate >= :fromDate', { fromDate: fromDateStr })
+      .andWhere('sr.returnDate <= :toDate', { toDate: todayStr })
       .getMany();
 
     // Load expenses in range
@@ -260,12 +318,22 @@ export class DashboardService {
         const prefix = `${year}-${monthNum}`;
 
         const monthInvs = invoices.filter((i) => i.invoiceDate.startsWith(prefix));
-        const salesKd = monthInvs.reduce((sum, i) => sum + Number(i.totalAmountKd || 0), 0);
+        const monthRets = returns.filter((r) => r.returnDate.startsWith(prefix));
+        const grossSalesKd = monthInvs.reduce((sum, i) => sum + Number(i.totalAmountKd || 0), 0);
+        const retSalesKd = monthRets.reduce((sum, r) => sum + Number(r.totalReturnAmountKd || 0), 0);
+        const salesKd = grossSalesKd - retSalesKd;
 
         const monthLines = invoiceLines.filter((l) => (l as any).__invoiceDate?.startsWith(prefix) || true); // approximate
-        const cogsKd = monthLines
+        const grossCogsKd = monthLines
           .filter((l) => invoices.some((inv) => inv.id === (l as any).invoiceId && inv.invoiceDate.startsWith(prefix)))
           .reduce((sum, l) => sum + ((Number(l.totalPcs || 0) / 12) * Number(l.product?.purchasePrice || 0)), 0);
+
+        const monthRetLines = returnLines.filter((l) => (l as any).__returnDate?.startsWith(prefix) || true);
+        const retCogsKd = monthRetLines
+          .filter((l) => returns.some((ret) => ret.id === (l as any).salesReturnId && ret.returnDate.startsWith(prefix)))
+          .reduce((sum, l) => sum + ((Number(l.returnTotalPcs || 0) / 12) * Number(l.product?.purchasePrice || 0)), 0);
+
+        const cogsKd = grossCogsKd - retCogsKd;
 
         const expKd = expenses
           .filter((e) => e.expenseDate.startsWith(prefix))
@@ -294,12 +362,21 @@ export class DashboardService {
       const dayLabel = current.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
 
       const dayInvs = invoices.filter((i) => i.invoiceDate === dStr);
-      const salesKd = dayInvs.reduce((sum, i) => sum + Number(i.totalAmountKd || 0), 0);
+      const dayRets = returns.filter((r) => r.returnDate === dStr);
+      const grossSalesKd = dayInvs.reduce((sum, i) => sum + Number(i.totalAmountKd || 0), 0);
+      const retSalesKd = dayRets.reduce((sum, r) => sum + Number(r.totalReturnAmountKd || 0), 0);
+      const salesKd = grossSalesKd - retSalesKd;
 
       // COGS for this day
       const dayInvIds = new Set(dayInvs.map((i) => i.id));
       const dayLines = invoiceLines.filter((l) => dayInvIds.has((l as any).invoiceId || (l.invoice as any)?.id));
-      const cogsKd = dayLines.reduce((sum, l) => sum + ((Number(l.totalPcs || 0) / 12) * Number(l.product?.purchasePrice || 0)), 0);
+      const grossCogsKd = dayLines.reduce((sum, l) => sum + ((Number(l.totalPcs || 0) / 12) * Number(l.product?.purchasePrice || 0)), 0);
+
+      const dayRetIds = new Set(dayRets.map((r) => r.id));
+      const dayRetLines = returnLines.filter((l) => dayRetIds.has((l as any).salesReturnId || (l.salesReturn as any)?.id));
+      const retCogsKd = dayRetLines.reduce((sum, l) => sum + ((Number(l.returnTotalPcs || 0) / 12) * Number(l.product?.purchasePrice || 0)), 0);
+
+      const cogsKd = grossCogsKd - retCogsKd;
 
       const expKd = expenses
         .filter((e) => e.expenseDate === dStr)
@@ -352,6 +429,14 @@ export class DashboardService {
         }
       }
 
+      // Check opening balance age if no older invoice
+      const openingKd = Number(c.openingOutstandingKd) || 0;
+      if (openingKd > 0 && c.openingBalanceDate) {
+        if (!oldestDate || new Date(c.openingBalanceDate) < new Date(oldestDate)) {
+          oldestDate = c.openingBalanceDate;
+        }
+      }
+
       if (oldestDate) {
         const diffMs = today.getTime() - new Date(oldestDate).getTime();
         daysOverdue = Math.max(0, Math.floor(diffMs / (1000 * 60 * 60 * 24)));
@@ -363,8 +448,8 @@ export class DashboardService {
         nameAr: c.nameAr || null,
         phone: c.phone || null,
         outstandingKd: Number(Number(c.totalOutstanding || 0).toFixed(3)),
-        latestInvoiceNumber: latestInv?.invoiceNumber || null,
-        paymentStatus: latestInv?.paymentStatus || 'PENDING',
+        latestInvoiceNumber: latestInv?.invoiceNumber || (openingKd > 0 ? 'Opening Balance' : null),
+        paymentStatus: unpaidInvoices.length > 0 ? (latestInv?.paymentStatus || 'PENDING') : 'PENDING',
         oldestUnpaidDate: oldestDate,
         daysOverdue,
         isOverdue: daysOverdue > 30, // flagged if past 30 days

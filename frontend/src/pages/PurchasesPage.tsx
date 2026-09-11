@@ -23,6 +23,9 @@ import {
   Ban,
 } from 'lucide-react';
 import { TransactionAuditModal } from '../components/common/TransactionAuditModal';
+import ProductThumbnail from '../components/common/ProductThumbnail';
+import { normalizeSearchText } from '../utils/searchUtils';
+import { SupplierCombobox } from '../components/common/SupplierCombobox';
 
 /* ───────────────────── Interfaces ───────────────────── */
 
@@ -48,6 +51,8 @@ interface ProductSearchItem {
     totalPcs: number;
     displayDozPcs: string;
   };
+  hasImage?: boolean;
+  imageUpdatedAt?: string | null;
 }
 
 interface ShipmentLineDraft {
@@ -354,12 +359,12 @@ export const PurchasesPage: React.FC = () => {
   // Filtered past shipments
   const filteredReceipts = receipts.filter((r) => {
     if (!search.trim()) return true;
-    const term = search.toLowerCase().trim();
+    const term = normalizeSearchText(search);
     return (
-      r.receiptNumber.toLowerCase().includes(term) ||
-      (r.supplier?.name && r.supplier.name.toLowerCase().includes(term)) ||
-      (r.shipmentContainerNo && r.shipmentContainerNo.toLowerCase().includes(term)) ||
-      (r.supplierInvoiceRef && r.supplierInvoiceRef.toLowerCase().includes(term))
+      normalizeSearchText(r.receiptNumber).includes(term) ||
+      normalizeSearchText(r.supplier?.name).includes(term) ||
+      normalizeSearchText(r.shipmentContainerNo).includes(term) ||
+      normalizeSearchText(r.supplierInvoiceRef).includes(term)
     );
   });
 
@@ -758,20 +763,12 @@ export const PurchasesPage: React.FC = () => {
                         {lang === 'hi' ? '(Optional - Direct / Local Purchase)' : '(Optional - Direct / Local Purchase)'}
                       </span>
                     </label>
-                    <select
+                    <SupplierCombobox
+                      suppliers={suppliers}
                       value={supplierId}
-                      onChange={(e) => setSupplierId(e.target.value ? Number(e.target.value) : '')}
-                      className="w-full px-4 py-3 bg-white border border-slate-300 rounded-xl text-slate-900 font-bold text-base focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-                    >
-                      <option value="">
-                        {lang === 'hi' ? '-- Direct Purchase / Local Market (Bina Supplier) --' : '-- Direct Purchase / Local Market (No Supplier) --'}
-                      </option>
-                      {suppliers.map((s) => (
-                        <option key={s.id} value={s.id}>
-                          {s.name} ({s.country})
-                        </option>
-                      ))}
-                    </select>
+                      onChange={(id) => setSupplierId(id === '' ? '' : Number(id))}
+                      lang={lang as 'en' | 'hi'}
+                    />
                   </div>
 
                   {/* Container / Shipment No */}
@@ -896,15 +893,26 @@ export const PurchasesPage: React.FC = () => {
                                 key={prod.id}
                                 type="button"
                                 onClick={() => handleSelectProduct(prod)}
-                                className="w-full text-left px-3.5 py-2 hover:bg-emerald-50 transition-colors flex items-center justify-between text-sm"
+                                className="w-full text-left px-3.5 py-2 hover:bg-emerald-50 transition-colors flex items-center gap-2 text-sm"
                               >
-                                <div>
-                                  <span className="font-bold text-emerald-700">{prod.articleNumber}</span>
-                                  <span className="text-slate-800 ml-2 font-medium">{prod.nameEn}</span>
+                                <ProductThumbnail
+                                  productId={prod.id}
+                                  articleNumber={prod.articleNumber}
+                                  productName={prod.nameEn}
+                                  hasImage={!!prod.hasImage}
+                                  imageUpdatedAt={prod.imageUpdatedAt}
+                                  size="sm"
+                                  disablePreview
+                                />
+                                <div className="flex-1 flex items-center justify-between">
+                                  <div>
+                                    <span className="font-bold text-emerald-700">{prod.articleNumber}</span>
+                                    <span className="text-slate-800 ml-2 font-medium">{prod.nameEn}</span>
+                                  </div>
+                                  <span className="text-xs text-slate-500">
+                                    Stock: {prod.stockBreakdown.displayDozPcs}
+                                  </span>
                                 </div>
-                                <span className="text-xs text-slate-500">
-                                  Stock: {prod.stockBreakdown.displayDozPcs}
-                                </span>
                               </button>
                             ))}
                           </div>

@@ -23,6 +23,9 @@ import {
   Trash2,
 } from 'lucide-react';
 import RashidiStarInvoice from '../components/common/RashidiStarInvoice';
+
+import { normalizeSearchText } from '../utils/searchUtils';
+import ProductThumbnail from '../components/common/ProductThumbnail';
 import { useTranslations } from '../hooks/useTranslations';
 
 /* ───────────────────── Interfaces ───────────────────── */
@@ -45,6 +48,8 @@ interface ProductOption {
   currentStockDozen?: number;
   currentStockRemainderPcs?: number;
   sellingPriceKd: number;
+  hasImage?: boolean;
+  imageUpdatedAt?: string | null;
 }
 
 interface InvoiceLineItem {
@@ -221,19 +226,19 @@ export const SalesPage: React.FC = () => {
   /* ── Calculation Helpers ── */
   const filteredCustomers = useMemo(() => {
     if (!customerSearchQuery) return customers;
-    const q = customerSearchQuery.toLowerCase();
+    const q = normalizeSearchText(customerSearchQuery);
     return customers.filter((c) =>
-      c.name.toLowerCase().includes(q) || (c.phone && c.phone.includes(q))
+      normalizeSearchText(c.name).includes(q) || normalizeSearchText(c.phone).includes(q)
     );
   }, [customers, customerSearchQuery]);
 
   const filteredProducts = useMemo(() => {
     const stockFiltered = products.filter((p) => (p.currentStockPcs || 0) > 0);
     if (!productSearchQuery) return stockFiltered;
-    const q = productSearchQuery.toLowerCase();
+    const q = normalizeSearchText(productSearchQuery);
     return stockFiltered.filter(
       (p) =>
-        p.nameEn.toLowerCase().includes(q) || p.articleNumber.toLowerCase().includes(q)
+        normalizeSearchText(p.nameEn).includes(q) || normalizeSearchText(p.articleNumber).includes(q)
     );
   }, [products, productSearchQuery]);
 
@@ -519,12 +524,12 @@ export const SalesPage: React.FC = () => {
   /* ── Filtered Invoices ── */
   const filteredInvoices = useMemo(() => {
     return invoices.filter((inv) => {
-      const q = search.toLowerCase().trim();
+      const q = normalizeSearchText(search);
       const matchSearch =
         !q ||
-        inv.invoiceNumber.toLowerCase().includes(q) ||
-        (inv.customer?.name && inv.customer.name.toLowerCase().includes(q)) ||
-        (inv.customer?.phone && inv.customer.phone.includes(q));
+        normalizeSearchText(inv.invoiceNumber).includes(q) ||
+        normalizeSearchText(inv.customer?.name).includes(q) ||
+        normalizeSearchText(inv.customer?.phone).includes(q);
 
       if (!matchSearch) return false;
 
@@ -1343,14 +1348,27 @@ export const SalesPage: React.FC = () => {
                                     productFocusedIndex === idx ? 'bg-slate-100' : 'hover:bg-slate-50'
                                   }`}
                                 >
-                                  <div className="font-bold text-slate-900 text-xs">{p.nameEn}</div>
-                                  <div className="flex flex-wrap gap-x-3 gap-y-1 text-[11px] mt-0.5">
-                                    <span className="text-slate-500 font-mono">Article No: {p.articleNumber}</span>
-                                    <span className="text-emerald-700 font-semibold">
-                                      Available: {doz} Doz {pcs} Pcs
-                                    </span>
-                                    <span className="text-slate-400">({p.currentStockPcs} Pcs Total)</span>
+                                  <div className="flex items-center gap-2">
+                                  <ProductThumbnail
+                                    productId={p.id}
+                                    articleNumber={p.articleNumber}
+                                    productName={p.nameEn}
+                                    hasImage={!!p.hasImage}
+                                    imageUpdatedAt={p.imageUpdatedAt}
+                                    size="sm"
+                                    disablePreview
+                                  />
+                                  <div className="flex-1 min-w-0">
+                                    <div className="font-bold text-slate-900 text-xs">{p.nameEn}</div>
+                                    <div className="flex flex-wrap gap-x-3 gap-y-1 text-[11px] mt-0.5">
+                                      <span className="text-slate-500 font-mono">Article No: {p.articleNumber}</span>
+                                      <span className="text-emerald-700 font-semibold">
+                                        Available: {doz} Doz {pcs} Pcs
+                                      </span>
+                                      <span className="text-slate-400">({p.currentStockPcs} Pcs Total)</span>
+                                    </div>
                                   </div>
+                                </div>
                                 </div>
                               );
                             })

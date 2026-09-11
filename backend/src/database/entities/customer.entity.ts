@@ -42,6 +42,18 @@ export class Customer {
   @Column({ type: 'varchar', length: 500, nullable: true })
   notes?: string;
 
+  @Column({ type: 'decimal', precision: 12, scale: 3, default: 0 })
+  openingBalanceOriginalKd!: number;
+
+  @Column({ type: 'decimal', precision: 12, scale: 3, default: 0 })
+  openingOutstandingKd!: number;
+
+  @Column({ type: 'date', nullable: true })
+  openingBalanceDate?: string;
+
+  @Column({ type: 'varchar', length: 500, nullable: true })
+  openingBalanceNote?: string;
+
   @OneToMany(() => SalesInvoice, (inv) => inv.customer)
   invoices?: Relation<SalesInvoice>[];
 

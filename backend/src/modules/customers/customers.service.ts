@@ -1,9 +1,10 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, ILike } from 'typeorm';
+import { Repository, ILike, EntityManager } from 'typeorm';
 import { Customer } from '../../database/entities/customer.entity.js';
 import { SalesInvoice } from '../../database/entities/sales-invoice.entity.js';
 import { CustomerReceipt } from '../../database/entities/customer-receipt.entity.js';
+import { CustomerOpeningBalanceAdjustment } from '../../database/entities/customer-opening-balance-adjustment.entity.js';
 import { AuditService } from '../audit/audit.service.js';
 
 export class CreateCustomerDto {
@@ -12,6 +13,9 @@ export class CreateCustomerDto {
   phone?: string;
   address?: string;
   notes?: string;
+  openingOutstandingKd?: number;
+  openingBalanceDate?: string;
+  openingBalanceNote?: string;
 }
 
 export class UpdateCustomerDto {
@@ -23,6 +27,11 @@ export class UpdateCustomerDto {
   isActive?: boolean;
 }
 
+export class AdjustOpeningBalanceDto {
+  amountKd!: number;
+  reason!: string;
+}
+
 export class BulkImportCustomerDto {
   name!: string;
   nameAr?: string;
@@ -31,6 +40,9 @@ export class BulkImportCustomerDto {
   openingOutstandingKd?: number;
   notes?: string;
 }
+
+const toFils = (kd: number | string): number => Math.round(Number(kd) * 1000);
+const toKd = (fils: number): number => Number((fils / 1000).toFixed(3));
 
 @Injectable()
 export class CustomersService {
@@ -41,6 +53,8 @@ export class CustomersService {
     private readonly invoiceRepo: Repository<SalesInvoice>,
     @InjectRepository(CustomerReceipt)
     private readonly receiptRepo: Repository<CustomerReceipt>,
+    @InjectRepository(CustomerOpeningBalanceAdjustment)
+    private readonly adjustmentRepo: Repository<CustomerOpeningBalanceAdjustment>,
     private readonly auditService: AuditService,
   ) {}
 
@@ -100,10 +114,23 @@ export class CustomersService {
     return customers.map((c) => this.formatCustomer(c));
   }
 
+  async recalculateCustomerTotals(customerId: number, manager?: EntityManager) {
+    const { reconcileCustomerFinancials } = await import('../../utils/finance.util.js');
+    if (manager) {
+      return reconcileCustomerFinancials(customerId, manager);
+    } else {
+      return this.customerRepo.manager.transaction(async (txManager) => {
+        return reconcileCustomerFinancials(customerId, txManager);
+      });
+    }
+  }
+
   async create(dto: CreateCustomerDto, user: any) {
     if (!dto.name || dto.name.trim().length === 0) {
       throw new BadRequestException('Customer name is required.');
     }
+
+    const openingKd = Math.max(0, Number(dto.openingOutstandingKd || 0));
 
     const customer = this.customerRepo.create({
       name: dto.name.trim(),
@@ -111,9 +138,13 @@ export class CustomersService {
       phone: dto.phone?.trim() || undefined,
       address: dto.address?.trim() || undefined,
       notes: dto.notes?.trim() || undefined,
+      openingBalanceOriginalKd: openingKd,
+      openingOutstandingKd: openingKd,
+      openingBalanceDate: dto.openingBalanceDate || undefined,
+      openingBalanceNote: dto.openingBalanceNote || undefined,
       totalSales: 0,
       totalReceived: 0,
-      totalOutstanding: 0,
+      totalOutstanding: openingKd,
       isActive: true,
     });
 
@@ -124,7 +155,7 @@ export class CustomersService {
       entityType: 'CUSTOMER',
       entityId: String(saved.id),
       performedBy: user?.displayName || 'Owner',
-      details: { name: saved.name, phone: saved.phone },
+      details: { name: saved.name, phone: saved.phone, openingBalance: openingKd },
     });
 
     return this.formatCustomer(saved);
@@ -156,30 +187,102 @@ export class CustomersService {
     return this.formatCustomer(saved);
   }
 
+  async adjustOpeningBalance(id: number, dto: AdjustOpeningBalanceDto, user: any) {
+    return this.customerRepo.manager.transaction(async (manager) => {
+      const customer = await manager.findOne(Customer, { 
+        where: { id }, 
+        lock: { mode: 'pessimistic_write' } 
+      });
+
+      if (!customer) {
+        throw new NotFoundException(`Customer with ID ${id} not found.`);
+      }
+
+      if (!dto.reason || !dto.reason.trim()) {
+        throw new BadRequestException('Reason is required for opening balance adjustments.');
+      }
+
+      const adjustmentFils = toFils(dto.amountKd);
+      const currentFils = toFils(customer.openingOutstandingKd || 0);
+
+      if (currentFils + adjustmentFils < 0) {
+        throw new BadRequestException('Adjustment cannot cause remaining opening balance to become negative.');
+      }
+
+      const newRemainingFils = currentFils + adjustmentFils;
+      customer.openingOutstandingKd = toKd(newRemainingFils);
+
+      // Create adjustment record
+      const adj = manager.create(CustomerOpeningBalanceAdjustment, {
+        customerId: customer.id,
+        amountKd: toKd(adjustmentFils),
+        reason: dto.reason.trim(),
+        performedBy: user?.displayName || 'Owner',
+      });
+      await manager.save(adj);
+
+      await manager.save(customer);
+      await this.recalculateCustomerTotals(customer.id, manager);
+
+      const savedCustomer = await manager.findOne(Customer, { where: { id } });
+
+      await this.auditService.log({
+        action: 'CUSTOMER_OPENING_BALANCE_ADJUSTED',
+        entityType: 'CUSTOMER',
+        entityId: String(id),
+        performedBy: user?.displayName || 'Owner',
+        details: { 
+          adjustment: toKd(adjustmentFils), 
+          reason: dto.reason,
+          newOpeningOutstanding: savedCustomer?.openingOutstandingKd 
+        },
+      });
+
+      return this.formatCustomer(savedCustomer!);
+    });
+  }
+
   async delete(id: number, user: any) {
     const customer = await this.customerRepo.findOne({ where: { id } });
     if (!customer) {
       throw new NotFoundException(`Customer with ID ${id} not found.`);
     }
 
-    try {
-      await this.customerRepo.remove(customer);
+    return this.customerRepo.manager.transaction(async (manager) => {
+      // Check for posted financial transactions
+      const invoiceCount = await manager.count(SalesInvoice, { where: { customerId: id } });
+      const receiptCount = await manager.count(CustomerReceipt, { where: { customerId: id } });
+      
+      // Need to dynamically import SalesReturn and CustomerRefund to avoid circular dependencies if they are not imported
+      const { SalesReturn } = await import('../../database/entities/sales-return.entity.js');
+      const { CustomerRefund } = await import('../../database/entities/customer-refund.entity.js');
+      
+      const returnCount = await manager.count(SalesReturn, { where: { customerId: id } });
+      const refundCount = await manager.count(CustomerRefund, { where: { customerId: id } });
 
-      await this.auditService.log({
-        action: 'DELETE',
-        entityType: 'CUSTOMER',
-        entityId: String(id),
-        performedBy: user?.displayName || 'Owner',
-        details: { name: customer.name, reason: 'Customer hard deleted' },
-      });
-
-      return { success: true, message: `Customer ${id} deleted successfully` };
-    } catch (error: any) {
-      if (error.code === '23503' || error.message?.includes('foreign key')) {
-        throw new BadRequestException('Cannot delete customer because they have associated invoices or receipts.');
+      if (invoiceCount > 0 || receiptCount > 0 || returnCount > 0 || refundCount > 0) {
+        throw new BadRequestException('Customer cannot be deleted because financial transactions exist.');
       }
-      throw error;
-    }
+
+      try {
+        // Safe to delete: only opening balance adjustments might exist. Clean them up first.
+        await manager.delete(CustomerOpeningBalanceAdjustment, { customerId: id });
+        
+        await manager.remove(Customer, customer);
+
+        await this.auditService.log({
+          action: 'DELETE',
+          entityType: 'CUSTOMER',
+          entityId: String(id),
+          performedBy: user?.displayName || 'Owner',
+          details: { name: customer.name, reason: 'Customer hard deleted' },
+        });
+
+        return { success: true, message: `Customer ${id} deleted successfully` };
+      } catch (error: any) {
+        throw new BadRequestException('Cannot delete customer due to existing relational data.');
+      }
+    });
   }
 
   async bulkImport(items: BulkImportCustomerDto[], user: any) {
@@ -202,15 +305,17 @@ export class CustomersService {
 
     const savedCustomers: Customer[] = [];
     for (const item of items) {
-      const opening = Math.max(0, Number(item.openingOutstandingKd || 0));
+      const openingKd = Math.max(0, Number(item.openingOutstandingKd || 0));
       const customer = this.customerRepo.create({
         name: item.name.trim(),
         nameAr: item.nameAr?.trim() || undefined,
         phone: item.phone?.trim() || undefined,
         address: item.address?.trim() || undefined,
-        totalSales: Number(opening.toFixed(3)),
+        totalSales: 0,
         totalReceived: 0,
-        totalOutstanding: Number(opening.toFixed(3)),
+        totalOutstanding: openingKd,
+        openingBalanceOriginalKd: openingKd,
+        openingOutstandingKd: openingKd,
         notes: item.notes?.trim() || undefined,
         isActive: true,
       });
@@ -238,14 +343,20 @@ export class CustomersService {
   }
 
   private formatCustomer(customer: Customer) {
+    const totalOut = Number(customer.totalOutstanding || 0);
+    const openingOut = Number(customer.openingOutstandingKd || 0);
+    
     return {
       ...customer,
+      openingBalanceOriginalKd: Number(customer.openingBalanceOriginalKd || 0),
+      openingOutstandingKd: openingOut,
+      invoiceOutstandingKd: Number((toFils(totalOut) - toFils(openingOut)) / 1000),
       totalSales: Number(customer.totalSales || 0),
       totalReceived: Number(customer.totalReceived || 0),
-      totalOutstanding: Number(customer.totalOutstanding || 0),
+      totalOutstanding: totalOut,
       totalSalesKd: Number(customer.totalSales || 0),
       totalReceivedKd: Number(customer.totalReceived || 0),
-      totalOutstandingKd: Number(customer.totalOutstanding || 0),
+      totalOutstandingKd: totalOut,
     };
   }
 
@@ -284,6 +395,11 @@ export class CustomersService {
       order: { receiptDate: 'ASC', createdAt: 'ASC' },
     });
 
+    const adjustments = await this.adjustmentRepo.find({
+      where: { customerId },
+      order: { createdAt: 'ASC' },
+    });
+
     type RawEntry = {
       date: string;
       createdAt: Date;
@@ -293,11 +409,44 @@ export class CustomersService {
       credit: number;
       notes: string;
       status: string;
-      id: number;
+      id: string | number;
     };
 
     const rawEntries: RawEntry[] = [];
 
+    // 1. Initial Opening Balance
+    if (Number(customer.openingBalanceOriginalKd) > 0) {
+      const obDate = customer.openingBalanceDate || customer.createdAt.toISOString().split('T')[0];
+      rawEntries.push({
+        date: obDate,
+        createdAt: new Date(0), // Place it at the very beginning
+        type: 'Opening Balance',
+        reference: 'OPENING',
+        debit: Number(customer.openingBalanceOriginalKd),
+        credit: 0,
+        notes: customer.openingBalanceNote || 'Previous Outstanding Balance',
+        status: 'POSTED',
+        id: 'ob-initial',
+      });
+    }
+
+    // 2. Adjustments
+    for (const adj of adjustments) {
+      const amt = Number(adj.amountKd);
+      rawEntries.push({
+        date: adj.createdAt.toISOString().split('T')[0],
+        createdAt: adj.createdAt,
+        type: 'Balance Adjustment',
+        reference: `ADJ-${adj.id}`,
+        debit: amt > 0 ? amt : 0,
+        credit: amt < 0 ? Math.abs(amt) : 0,
+        notes: adj.reason,
+        status: 'POSTED',
+        id: `adj-${adj.id}`,
+      });
+    }
+
+    // 3. Invoices
     for (const inv of invoices) {
       const isCancelled = inv.status === 'CANCELLED';
       rawEntries.push({
@@ -309,21 +458,23 @@ export class CustomersService {
         credit: 0,
         notes: isCancelled ? (inv.notes || 'Cancelled / Reversed') : `Sales Invoice [${inv.paymentStatus}]`,
         status: inv.status,
-        id: inv.id,
+        id: `inv-${inv.id}`,
       });
     }
 
+    // 4. Receipts
     for (const r of receipts) {
+      const isCancelled = r.status === 'CANCELLED';
       rawEntries.push({
         date: r.receiptDate,
         createdAt: r.createdAt,
-        type: 'Payment',
+        type: isCancelled ? 'Payment (Cancelled)' : 'Payment',
         reference: r.receiptNumber,
         debit: 0,
-        credit: Number(r.amountKd || 0),
-        notes: `Received via ${r.paymentMethod}${r.notes ? ' - ' + r.notes : ''}`,
-        status: 'POSTED',
-        id: r.id,
+        credit: isCancelled ? 0 : Number(r.amountKd || 0),
+        notes: isCancelled ? 'Payment Reversed' : `Received via ${r.paymentMethod}${r.notes ? ' - ' + r.notes : ''}`,
+        status: r.status,
+        id: `rec-${r.id}`,
       });
     }
 
@@ -354,4 +505,3 @@ export class CustomersService {
     };
   }
 }
-

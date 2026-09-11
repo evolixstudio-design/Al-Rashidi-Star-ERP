@@ -21,7 +21,8 @@ export type PaymentWhatsAppType =
   | 'PARTIAL_PAYMENT_RECEIPT'
   | 'PENDING_REMINDER'
   | 'PARTIAL_REMINDER'
-  | 'SIMPLE_CONFIRMATION';
+  | 'SIMPLE_CONFIRMATION'
+  | 'OUTSTANDING_BALANCE_REMINDER';
 
 export interface WhatsAppPaymentData {
   receiptNumber?: string | null;
@@ -296,7 +297,38 @@ export function generatePartialBalanceReminder(data: WhatsAppPaymentData): strin
 }
 
 // ─────────────────────────────────────────────────────────────
-// 5. SIMPLE PAYMENT CONFIRMATION
+// 5. OUTSTANDING BALANCE REMINDER
+// ─────────────────────────────────────────────────────────────
+export function generateOutstandingBalanceReminder(data: WhatsAppPaymentData): string {
+  const greeting = getCustomerGreeting(data.customerName);
+  const outstanding = formatKd(data.outstandingAmount);
+
+  const lines: string[] = [
+    'Rashidi Star',
+    '',
+    'Outstanding Balance Reminder',
+    '',
+    greeting,
+    '',
+    `Total Outstanding Balance: ${outstanding} K.D.`,
+  ];
+
+  if (isValidField(data.dueDate)) {
+    lines.push('');
+    lines.push(`Due Date: ${data.dueDate!.trim()}`);
+  }
+
+  lines.push('');
+  lines.push('Kindly arrange the payment at your earliest convenience.');
+  lines.push('');
+  lines.push('Thank you,');
+  lines.push('Rashidi Star');
+
+  return lines.join('\n');
+}
+
+// ─────────────────────────────────────────────────────────────
+// 6. SIMPLE PAYMENT CONFIRMATION
 // ─────────────────────────────────────────────────────────────
 export function generateSimplePaymentConfirmation(data: WhatsAppPaymentData): string {
   const customer = getCustomerDisplayName(data.customerName);
@@ -361,6 +393,9 @@ export function buildWhatsAppMessage(
   }
   if (explicitType === 'SIMPLE_CONFIRMATION') {
     return generateSimplePaymentConfirmation(data);
+  }
+  if (explicitType === 'OUTSTANDING_BALANCE_REMINDER') {
+    return generateOutstandingBalanceReminder(data);
   }
 
   // Automatic detection based on status:

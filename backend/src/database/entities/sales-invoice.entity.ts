@@ -11,6 +11,7 @@ import {
 } from 'typeorm';
 import { Customer } from './customer.entity.js';
 import { SalesInvoiceLine } from './sales-invoice-line.entity.js';
+import { SalesReturn } from './sales-return.entity.js';
 
 export type InvoicePaymentStatus = 'PAID' | 'PARTIAL' | 'PENDING';
 export type InvoiceStatus = 'DRAFT' | 'POSTED' | 'CANCELLED';
@@ -46,6 +47,12 @@ export class SalesInvoice {
   @Column({ type: 'decimal', precision: 12, scale: 3, default: 0 })
   outstandingKd!: number;
 
+  @Column({ type: 'decimal', precision: 12, scale: 3, default: 0 })
+  totalReturnedKd!: number;
+
+  @Column({ type: 'decimal', precision: 12, scale: 3, default: 0 })
+  totalRefundedKd!: number;
+
   @Column({ type: 'varchar', length: 20, default: 'PENDING' })
   paymentStatus!: InvoicePaymentStatus;
 
@@ -66,6 +73,9 @@ export class SalesInvoice {
 
   @OneToMany(() => SalesInvoiceLine, (line) => line.invoice, { cascade: true })
   lines?: Relation<SalesInvoiceLine>[];
+
+  @OneToMany(() => SalesReturn, (salesReturn) => salesReturn.invoice)
+  returns?: Relation<SalesReturn>[];
 
   @CreateDateColumn({ type: 'timestamptz' })
   createdAt!: Date;

@@ -14,6 +14,8 @@ import { SalesPage } from './pages/SalesPage';
 import { PaymentsPage } from './pages/PaymentsPage';
 import { ExpensesPage } from './pages/ExpensesPage';
 import { ReportsPage } from './pages/ReportsPage';
+import { SalesReturnsPage } from './pages/SalesReturnsPage';
+import { CreateSalesReturnPage } from './pages/CreateSalesReturnPage';
 import { AuditPage } from './pages/AuditPage';
 import { CatalogueBuilderPage } from './pages/CatalogueBuilderPage';
 
@@ -36,6 +38,8 @@ export const App: React.FC = () => {
               <Route element={<AppShell />}>
                 <Route path="/" element={<HomePage />} />
                 <Route path="/sales" element={<SalesPage />} />
+                <Route path="/sales-returns" element={<SalesReturnsPage />} />
+                <Route path="/sales-returns/create" element={<CreateSalesReturnPage />} />
                 <Route path="/purchases" element={<PurchasesPage />} />
                 <Route path="/stock" element={<StockPage />} />
                 <Route path="/payments" element={<PaymentsPage />} />

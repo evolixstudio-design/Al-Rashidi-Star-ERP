@@ -19,6 +19,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import { CsvImportModal } from '../components/common/CsvImportModal';
+import { normalizeSearchText } from '../utils/searchUtils';
 
 /* ───────────────────── Interfaces ───────────────────── */
 
@@ -211,12 +212,12 @@ export const SuppliersPage: React.FC = () => {
   /* ── Filtered suppliers ── */
   const filteredSuppliers = suppliers.filter((s) => {
     if (!search.trim()) return true;
-    const term = search.toLowerCase().trim();
+    const term = normalizeSearchText(search);
     return (
-      s.name.toLowerCase().includes(term) ||
-      (s.contactPerson && s.contactPerson.toLowerCase().includes(term)) ||
-      (s.phone && s.phone.toLowerCase().includes(term)) ||
-      s.country.toLowerCase().includes(term)
+      normalizeSearchText(s.name).includes(term) ||
+      normalizeSearchText(s.contactPerson).includes(term) ||
+      normalizeSearchText(s.phone).includes(term) ||
+      normalizeSearchText(s.country).includes(term)
     );
   });
 

@@ -11,6 +11,8 @@ import {
 import { Customer } from './customer.entity.js';
 import { SalesInvoice } from './sales-invoice.entity.js';
 
+export type ReceiptStatus = 'POSTED' | 'CANCELLED';
+
 @Entity('customer_receipts')
 export class CustomerReceipt {
   @PrimaryGeneratedColumn()
@@ -48,6 +50,9 @@ export class CustomerReceipt {
 
   @Column({ type: 'varchar', length: 100 })
   performedBy!: string;
+
+  @Column({ type: 'varchar', length: 20, default: 'POSTED' })
+  status!: ReceiptStatus;
 
   @CreateDateColumn({ type: 'timestamptz' })
   createdAt!: Date;

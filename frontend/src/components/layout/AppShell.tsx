@@ -37,6 +37,7 @@ export const AppShell: React.FC = () => {
   const navItems = [
     { to: '/', label: t.nav.home, icon: Home },
     { to: '/sales', label: t.nav.sales, icon: ShoppingCart },
+    { to: '/sales-returns', label: 'Returns', icon: AlertTriangle },
     { to: '/purchases', label: t.nav.purchases, icon: PackagePlus },
     { to: '/stock', label: t.nav.stock, icon: Boxes },
     { to: '/payments', label: t.nav.payments, icon: CircleDollarSign },

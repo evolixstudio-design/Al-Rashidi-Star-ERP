@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource } from 'typeorm';
+import { Repository, DataSource, EntityManager } from 'typeorm';
 import { SalesInvoice } from '../../database/entities/sales-invoice.entity.js';
 import { SalesInvoiceLine } from '../../database/entities/sales-invoice-line.entity.js';
 import { Customer } from '../../database/entities/customer.entity.js';
@@ -29,6 +29,10 @@ export class CreateInvoiceDto {
   items!: InvoiceLineDto[];
 }
 
+const toFils = (kd: number | string): number => Math.round(Number(kd) * 1000);
+const toKd = (fils: number): number => Number((fils / 1000).toFixed(3));
+
+import { SalesReturn } from '../../database/entities/sales-return.entity.js';
 @Injectable()
 export class SalesService {
   constructor(
@@ -91,6 +95,8 @@ export class SalesService {
             totalSales: 0,
             totalReceived: 0,
             totalOutstanding: 0,
+            openingBalanceOriginalKd: 0,
+            openingOutstandingKd: 0,
           });
           customer = await manager.save(Customer, customer);
         } else if (dto.customerPhone?.trim() && !customer.phone) {
@@ -241,11 +247,16 @@ export class SalesService {
         await manager.save(StockLedger, ledger);
       }
 
-      // Update customer balances
-      customer.totalSales = Number((Number(customer.totalSales || 0) + grandTotalAmountKd).toFixed(3));
-      customer.totalReceived = Number((Number(customer.totalReceived || 0) + amountReceivedKd).toFixed(3));
-      customer.totalOutstanding = Number((Number(customer.totalOutstanding || 0) + outstandingKd).toFixed(3));
+      // Update customer totalReceived
+      const currentReceivedFils = toFils(customer.totalReceived || 0);
+      const amtRecFils = toFils(amountReceivedKd);
+      customer.totalReceived = toKd(currentReceivedFils + amtRecFils);
       await manager.save(Customer, customer);
+      
+      // Update mathematically safe totals
+      const { reconcileInvoiceFinancials, reconcileCustomerFinancials } = await import('../../utils/finance.util.js');
+      await reconcileInvoiceFinancials(savedInvoice.id, manager);
+      await reconcileCustomerFinancials(customer.id, manager);
 
       // Audit log
       await this.auditService.log({
@@ -286,6 +297,13 @@ export class SalesService {
         throw new BadRequestException('Invoice is already cancelled.');
       }
 
+      const postedReturns = await manager.count(SalesReturn, {
+        where: { invoiceId: id, status: 'POSTED' }
+      });
+      if (postedReturns > 0) {
+        throw new BadRequestException('Cannot cancel invoice: it has POSTED sales returns. Please cancel the returns first.');
+      }
+
       // Reverse stock for each line
       if (invoice.lines) {
         for (const line of invoice.lines) {
@@ -315,6 +333,11 @@ export class SalesService {
         }
       }
 
+      // Mark invoice as cancelled
+      invoice.status = 'CANCELLED';
+      invoice.outstandingKd = 0;
+      await manager.save(SalesInvoice, invoice);
+
       // Reverse customer balances
       if (invoice.customer) {
         const customer = await manager.findOne(Customer, {
@@ -322,21 +345,16 @@ export class SalesService {
           lock: { mode: 'pessimistic_write' },
         });
         if (customer) {
-          customer.totalSales = Number((Number(customer.totalSales || 0) - Number(invoice.totalAmountKd)).toFixed(3));
-          customer.totalReceived = Number((Number(customer.totalReceived || 0) - Number(invoice.amountReceivedKd)).toFixed(3));
-          customer.totalOutstanding = Number((Number(customer.totalOutstanding || 0) - Number(invoice.outstandingKd)).toFixed(3));
-          // Prevent negative balances
-          if (customer.totalSales < 0) customer.totalSales = 0;
-          if (customer.totalReceived < 0) customer.totalReceived = 0;
-          if (customer.totalOutstanding < 0) customer.totalOutstanding = 0;
+          const curRecFils = toFils(customer.totalReceived || 0);
+          const invRecFils = toFils(invoice.amountReceivedKd || 0);
+          const newRecFils = Math.max(0, curRecFils - invRecFils);
+          customer.totalReceived = toKd(newRecFils);
           await manager.save(Customer, customer);
+          const { reconcileInvoiceFinancials, reconcileCustomerFinancials } = await import('../../utils/finance.util.js');
+          await reconcileInvoiceFinancials(invoice.id, manager);
+          await reconcileCustomerFinancials(customer.id, manager);
         }
       }
-
-      // Mark invoice as cancelled
-      invoice.status = 'CANCELLED';
-      invoice.outstandingKd = 0;
-      await manager.save(SalesInvoice, invoice);
 
       await this.auditService.log({
         action: 'CANCEL',
@@ -369,6 +387,13 @@ export class SalesService {
 
       // If not already cancelled, we need to reverse stock and balances first
       if (invoice.status !== 'CANCELLED') {
+        const postedReturns = await manager.count(SalesReturn, {
+          where: { invoiceId: id, status: 'POSTED' }
+        });
+        if (postedReturns > 0) {
+          throw new BadRequestException('Cannot delete invoice: it has POSTED sales returns. Please cancel the returns first.');
+        }
+
         // Reverse stock for each line
         if (invoice.lines) {
           for (const line of invoice.lines) {
@@ -404,20 +429,21 @@ export class SalesService {
             lock: { mode: 'pessimistic_write' },
           });
           if (customer) {
-            customer.totalSales = Number((Number(customer.totalSales || 0) - Number(invoice.totalAmountKd)).toFixed(3));
-            customer.totalReceived = Number((Number(customer.totalReceived || 0) - Number(invoice.amountReceivedKd)).toFixed(3));
-            customer.totalOutstanding = Number((Number(customer.totalOutstanding || 0) - Number(invoice.outstandingKd)).toFixed(3));
-            if (customer.totalSales < 0) customer.totalSales = 0;
-            if (customer.totalReceived < 0) customer.totalReceived = 0;
-            if (customer.totalOutstanding < 0) customer.totalOutstanding = 0;
+            const curRecFils = toFils(customer.totalReceived || 0);
+            const invRecFils = toFils(invoice.amountReceivedKd || 0);
+            const newRecFils = Math.max(0, curRecFils - invRecFils);
+            customer.totalReceived = toKd(newRecFils);
             await manager.save(Customer, customer);
           }
         }
       }
 
-      // We should safely remove ledger entries pointing to this sourceId first if there is a constraint,
-      // but in this app StockLedger sourceType and sourceId are loose references (no FK constraint).
       await manager.remove(SalesInvoice, invoice);
+      
+      if (invoice.customer) {
+        const { reconcileCustomerFinancials } = await import('../../utils/finance.util.js');
+        await reconcileCustomerFinancials(invoice.customerId, manager);
+      }
 
       await this.auditService.log({
         action: 'DELETE',
@@ -446,6 +472,8 @@ export class SalesService {
       amountReceivedKd: Number(invoice.amountReceivedKd || 0),
       amountOutstandingKd: Number(invoice.outstandingKd || 0),
       outstandingKd: Number(invoice.outstandingKd || 0),
+      totalReturnedKd: Number(invoice.totalReturnedKd || 0),
+      totalRefundedKd: Number(invoice.totalRefundedKd || 0),
       invoiceStatus: invoice.status,
       totalPcsBreakdown: {
         dozen,

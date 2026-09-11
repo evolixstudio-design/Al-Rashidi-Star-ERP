@@ -169,7 +169,7 @@ export const RashidiStarInvoiceSheet: React.FC<RashidiStarInvoiceSheetProps> = (
               }}
             >
               <div>Souk Al-Fahad</div>
-              <div>Opp. Masjid Al-Fahad - Shop No. 36</div>
+              <div>Opp. Masjid Al-Fahad - Shop No. 35</div>
             </div>
             <div
               style={{
@@ -275,7 +275,7 @@ export const RashidiStarInvoiceSheet: React.FC<RashidiStarInvoiceSheetProps> = (
                 fontWeight: 700,
               }}
             >
-              <div>سوق الفهد - مقابل مسجد الفهد - محل رقم ٣٦</div>
+              <div>سوق الفهد - مقابل مسجد الفهد - محل رقم ٣٥</div>
             </div>
             <div
               style={{
@@ -1017,6 +1017,36 @@ export const RashidiStarInvoiceSheet: React.FC<RashidiStarInvoiceSheetProps> = (
 
       {/* ───────────────────── FOOTER AREA ───────────────────── */}
       <div style={{ marginTop: '16px' }}>
+        {/* 15-Day Return / Exchange Policy — exact physical invoice wording */}
+        <div
+          style={{
+            textAlign: 'center',
+            color: '#164680',
+            padding: '0 4px 7px 4px',
+            lineHeight: '1.25',
+          }}
+        >
+          <div
+            style={{
+              direction: 'rtl',
+              fontFamily: "'Amiri', 'Cairo', 'Traditional Arabic', Tahoma, sans-serif",
+              fontSize: '11.5px',
+              fontWeight: 800,
+            }}
+          >
+            الجهاز المباع يمكن ترجيعه أو استبداله خلال 15 أيام من تاريخ الشراء بشرط أن يكون بحالته الأصلية
+          </div>
+          <div
+            style={{
+              fontSize: '9.5px',
+              fontWeight: 700,
+              marginTop: '2px',
+            }}
+          >
+            The Sold Device Can Be Returned Or Exchanged Within 15 Days From The Date Of Purchase, Provided It Is In Its Original Condition.
+          </div>
+        </div>
+
         {/* Cheque Instruction Line */}
         <div
           style={{
@@ -1031,7 +1061,7 @@ export const RashidiStarInvoiceSheet: React.FC<RashidiStarInvoiceSheetProps> = (
           }}
         >
           <div>
-            Please Issue Cheque in name of Yusuf Ali Jatwala Taher Ali Jatwala
+            Please Issue Cheque in Name of Yusuf Ali Jatwala Taher Ali Jatwala
           </div>
           <div
             style={{

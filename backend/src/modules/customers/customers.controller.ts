@@ -12,7 +12,7 @@ import {
   Delete,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
-import { CustomersService, CreateCustomerDto, UpdateCustomerDto } from './customers.service.js';
+import { CustomersService, CreateCustomerDto, UpdateCustomerDto, AdjustOpeningBalanceDto } from './customers.service.js';
 
 @Controller('customers')
 @UseGuards(AuthGuard('jwt'))
@@ -52,6 +52,15 @@ export class CustomersController {
   @Post('bulk-import')
   async bulkImport(@Body() items: any[], @Request() req: any) {
     return this.customersService.bulkImport(items, req.user);
+  }
+
+  @Post(':id/opening-balance')
+  async adjustOpeningBalance(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: AdjustOpeningBalanceDto,
+    @Request() req: any,
+  ) {
+    return this.customersService.adjustOpeningBalance(id, dto, req.user);
   }
 
   @Put(':id')

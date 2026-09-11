@@ -13,6 +13,7 @@ export type StockSourceType =
   | 'OPENING_BALANCE'
   | 'RECEIVE_SHIPMENT'
   | 'SALES_INVOICE'
+  | 'SALES_RETURN'
   | 'STOCK_ADJUSTMENT';
 
 @Entity('stock_ledger')

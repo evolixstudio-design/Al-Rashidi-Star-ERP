@@ -57,6 +57,15 @@ export class Product {
   @Column({ type: 'varchar', length: 500, nullable: true })
   notes?: string;
 
+  @Column({ type: 'bytea', nullable: true, select: false })
+  imageData?: Buffer | null;
+
+  @Column({ type: 'varchar', length: 50, nullable: true })
+  imageMimeType?: string | null;
+
+  @Column({ type: 'timestamp', nullable: true })
+  imageUpdatedAt?: Date | null;
+
   @CreateDateColumn({ type: 'timestamptz' })
   createdAt!: Date;
 

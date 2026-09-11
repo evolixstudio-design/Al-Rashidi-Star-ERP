@@ -14,6 +14,7 @@ import {
   ShieldCheck,
 } from 'lucide-react';
 import { useLegalHelp } from '../../context/LegalHelpContext';
+import { normalizeSearchText } from '../../utils/searchUtils';
 
 interface FaqItem {
   id: string;
@@ -101,12 +102,12 @@ export const HelpFaqModal: React.FC = () => {
     return FAQ_DATA.filter((item) => {
       const matchesCategory =
         selectedCategory === 'All' || item.category === selectedCategory;
-      const q = searchQuery.toLowerCase().trim();
+      const q = normalizeSearchText(searchQuery);
       const matchesSearch =
         !q ||
-        item.question.toLowerCase().includes(q) ||
-        item.answer.toLowerCase().includes(q) ||
-        item.category.toLowerCase().includes(q);
+        normalizeSearchText(item.question).includes(q) ||
+        normalizeSearchText(item.answer).includes(q) ||
+        normalizeSearchText(item.category).includes(q);
       return matchesCategory && matchesSearch;
     });
   }, [selectedCategory, searchQuery]);

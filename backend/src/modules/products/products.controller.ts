@@ -10,7 +10,13 @@ import {
   Request,
   ParseIntPipe,
   Delete,
+  UseInterceptors,
+  UploadedFile,
+  Res,
+  Header,
 } from '@nestjs/common';
+import type { Response } from 'express';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard.js';
 import {
   ProductsService,
@@ -72,6 +78,30 @@ export class ProductsController {
   @Delete(':id')
   async deleteProduct(@Param('id', ParseIntPipe) id: number, @Request() req: any) {
     return this.productsService.delete(id, req.user);
+  }
+
+  @Post(':id/image')
+  @UseInterceptors(FileInterceptor('image', { limits: { fileSize: 10 * 1024 * 1024 } }))
+  async uploadImage(
+    @Param('id', ParseIntPipe) id: number,
+    @UploadedFile() file: any,
+    @Request() req: any,
+  ) {
+    return this.productsService.uploadImage(id, file, req.user);
+  }
+
+  @Get(':id/image')
+  @Header('Cache-Control', 'public, max-age=31536000')
+  @Header('X-Content-Type-Options', 'nosniff')
+  async getImage(@Param('id', ParseIntPipe) id: number, @Res() res: Response) {
+    const image = await this.productsService.getImage(id);
+    res.setHeader('Content-Type', image.mimeType);
+    res.send(image.buffer);
+  }
+
+  @Delete(':id/image')
+  async deleteImage(@Param('id', ParseIntPipe) id: number, @Request() req: any) {
+    return this.productsService.deleteImage(id, req.user);
   }
 }
 

@@ -1,4 +1,5 @@
-import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import { translateEnglishToArabic } from '../utils/translate';
@@ -13,17 +14,19 @@ import {
   X,
   DollarSign,
   TrendingUp,
-  FileText,
   CreditCard,
   ShoppingBag,
   Upload,
   BookOpen,
-  ChevronDown,
   Eye,
   Trash2,
+  MoreVertical,
 } from 'lucide-react';
 import { CsvImportModal } from '../components/common/CsvImportModal';
+import { normalizeSearchText } from '../utils/searchUtils';
 import { CustomerLedgerModal } from '../components/customers/CustomerLedgerModal';
+import { AdjustOpeningBalanceModal } from '../components/customers/AdjustOpeningBalanceModal';
+import { ReceivePaymentModal } from '../components/payments/ReceivePaymentModal';
 import { openWhatsAppWithText } from '../services/whatsappService';
 
 /* ───────────────────── Types ───────────────────── */
@@ -62,8 +65,50 @@ export const CustomersPage: React.FC = () => {
   const [customers, setCustomers] = useState<CustomerItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
-  const [filterOutstandingOnly, setFilterOutstandingOnly] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<'ALL' | 'ACTIVE' | 'INACTIVE'>('ALL');
+  const [balanceFilter, setBalanceFilter] = useState<'ALL' | 'OUTSTANDING' | 'NO_OUTSTANDING'>('ALL');
   const [toast, setToast] = useState('');
+
+  /* ── Horizontal Scroll Synchronization ── */
+  const topScrollRef = useRef<HTMLDivElement>(null);
+  const tableScrollRef = useRef<HTMLDivElement>(null);
+  const tableInnerRef = useRef<HTMLTableElement>(null);
+  const isSyncingLeft = useRef(false);
+  const isSyncingRight = useRef(false);
+  const [tableInnerWidth, setTableInnerWidth] = useState(0);
+
+  useEffect(() => {
+    if (!tableInnerRef.current) return;
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        setTableInnerWidth(entry.contentRect.width);
+      }
+    });
+    observer.observe(tableInnerRef.current);
+    return () => observer.disconnect();
+  }, []);
+
+  const handleTopScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    if (isSyncingRight.current) {
+      isSyncingRight.current = false;
+      return;
+    }
+    if (tableScrollRef.current) {
+      isSyncingLeft.current = true;
+      tableScrollRef.current.scrollLeft = e.currentTarget.scrollLeft;
+    }
+  };
+
+  const handleTableScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    if (isSyncingLeft.current) {
+      isSyncingLeft.current = false;
+      return;
+    }
+    if (topScrollRef.current) {
+      isSyncingRight.current = true;
+      topScrollRef.current.scrollLeft = e.currentTarget.scrollLeft;
+    }
+  };
 
   // Modals
   const [showAddModal, setShowAddModal] = useState(false);
@@ -77,8 +122,16 @@ export const CustomersPage: React.FC = () => {
   const [ledgerCustomerId, setLedgerCustomerId] = useState<number | null>(null);
   const [ledgerCustomerName, setLedgerCustomerName] = useState<string>('');
 
+  // Adjust Opening Balance Modal
+  const [adjustBalanceCustomerId, setAdjustBalanceCustomerId] = useState<number | null>(null);
+  const [adjustBalanceCustomerName, setAdjustBalanceCustomerName] = useState<string>('');
+
+  // Receive Payment Modal
+  const [receivePaymentCustomerId, setReceivePaymentCustomerId] = useState<number | null>(null);
+
   // Active More Dropdown
   const [openDropdownId, setOpenDropdownId] = useState<number | null>(null);
+  const [dropdownPos, setDropdownPos] = useState<{ top: number; right: number } | null>(null);
 
   // Form states (Only Name required; all others optional)
   const [name, setName] = useState('');
@@ -87,6 +140,7 @@ export const CustomersPage: React.FC = () => {
   const [address, setAddress] = useState('');
   const [notes, setNotes] = useState('');
   const [isActive, setIsActive] = useState(true);
+  const [openingOutstandingKd, setOpeningOutstandingKd] = useState('');
   const [formError, setFormError] = useState('');
   const [saving, setSaving] = useState(false);
 
@@ -113,6 +167,7 @@ export const CustomersPage: React.FC = () => {
       const target = e.target as HTMLElement;
       if (!target.closest('.action-dropdown-container')) {
         setOpenDropdownId(null);
+        setDropdownPos(null);
       }
     };
     window.addEventListener('click', handleGlobalClick);
@@ -132,6 +187,7 @@ export const CustomersPage: React.FC = () => {
     setAddress('');
     setNotes('');
     setIsActive(true);
+    setOpeningOutstandingKd('');
     setFormError('');
     setShowAddModal(false);
     setEditCustomer(null);
@@ -211,6 +267,7 @@ export const CustomersPage: React.FC = () => {
         phone: phone.trim() || undefined,
         address: address.trim() || undefined,
         notes: notes.trim() || undefined,
+        openingOutstandingKd: openingOutstandingKd ? Number(openingOutstandingKd) : undefined,
         isActive,
       };
 
@@ -256,21 +313,28 @@ export const CustomersPage: React.FC = () => {
   /* ── Filtering & Metrics ── */
   const filteredCustomers = useMemo(() => {
     return customers.filter((c) => {
-      const q = search.toLowerCase().trim();
+      const q = normalizeSearchText(search);
       const matchesSearch =
         !q ||
-        c.name.toLowerCase().includes(q) ||
-        (c.nameAr && c.nameAr.toLowerCase().includes(q)) ||
-        (c.phone && c.phone.includes(q)) ||
-        (c.address && c.address.toLowerCase().includes(q));
+        normalizeSearchText(c.name).includes(q) ||
+        normalizeSearchText(c.nameAr).includes(q) ||
+        normalizeSearchText(c.phone).includes(q) ||
+        normalizeSearchText(c.address).includes(q);
 
       if (!matchesSearch) return false;
-      if (filterOutstandingOnly) {
-        return Number(c.totalOutstandingKd ?? c.totalOutstanding ?? 0) > 0;
-      }
+
+      // Status Filter
+      if (statusFilter === 'ACTIVE' && !c.isActive) return false;
+      if (statusFilter === 'INACTIVE' && c.isActive) return false;
+
+      // Balance Filter
+      const outstanding = Number(c.totalOutstandingKd ?? c.totalOutstanding ?? 0);
+      if (balanceFilter === 'OUTSTANDING' && outstanding <= 0) return false;
+      if (balanceFilter === 'NO_OUTSTANDING' && outstanding > 0) return false;
+
       return true;
     });
-  }, [customers, search, filterOutstandingOnly]);
+  }, [customers, search, statusFilter, balanceFilter]);
 
   const totalOutstandingSum = useMemo(() => {
     return customers.reduce(
@@ -291,7 +355,7 @@ export const CustomersPage: React.FC = () => {
   }, [customers]);
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-6">
+    <div className="w-full space-y-6">
       {/* Toast */}
       {toast && (
         <div className="fixed bottom-6 right-6 z-50 bg-emerald-600 text-white px-5 py-3 rounded-xl shadow-xl flex items-center gap-2 text-sm font-semibold animate-in fade-in slide-in-from-bottom-4">
@@ -413,43 +477,78 @@ export const CustomersPage: React.FC = () => {
       </div>
 
       {/* Filter and Search Bar */}
-      <div className="bg-white rounded-xl p-4 border border-slate-200 shadow-xs flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+      <div className="bg-white rounded-xl p-4 border border-slate-200 shadow-xs flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 sticky top-0 z-10">
         <div className="relative flex-1">
           <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
           <input
             type="text"
-            placeholder="Search by customer name, Arabic name, or phone..."
+            placeholder="Search by customer name, Arabic name, phone, or address..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="w-full pl-10 pr-4 py-2 text-sm bg-slate-50 hover:bg-slate-100/70 focus:bg-white border border-slate-200 focus:border-slate-400 rounded-lg outline-none transition-colors placeholder:text-slate-400"
           />
         </div>
 
-        <label className="inline-flex items-center gap-2 text-xs font-semibold text-slate-700 select-none cursor-pointer self-start sm:self-center px-2 py-1 bg-slate-50 hover:bg-slate-100 rounded-lg border border-slate-200">
-          <input
-            type="checkbox"
-            checked={filterOutstandingOnly}
-            onChange={(e) => setFilterOutstandingOnly(e.target.checked)}
-            className="rounded text-sky-600 focus:ring-sky-500 cursor-pointer"
-          />
-          <span>Only with Outstanding Balance</span>
-        </label>
+        <div className="flex flex-wrap items-center gap-3">
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value as any)}
+            className="px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg outline-none focus:border-slate-400 text-slate-700 cursor-pointer"
+          >
+            <option value="ALL">All Statuses</option>
+            <option value="ACTIVE">Active Only</option>
+            <option value="INACTIVE">Inactive Only</option>
+          </select>
+
+          <select
+            value={balanceFilter}
+            onChange={(e) => setBalanceFilter(e.target.value as any)}
+            className="px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg outline-none focus:border-slate-400 text-slate-700 cursor-pointer"
+          >
+            <option value="ALL">All Balances</option>
+            <option value="OUTSTANDING">Outstanding</option>
+            <option value="NO_OUTSTANDING">No Outstanding</option>
+          </select>
+
+          <button
+            type="button"
+            onClick={() => {
+              setSearch('');
+              setStatusFilter('ALL');
+              setBalanceFilter('ALL');
+            }}
+            className="px-4 py-2 text-sm font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors whitespace-nowrap cursor-pointer"
+          >
+            Reset
+          </button>
+        </div>
       </div>
 
+      {/* Top Synchronized Scrollbar */}
+      {tableInnerWidth > 0 && (
+        <div 
+          className="overflow-x-auto overflow-y-hidden h-3 bg-slate-50 rounded-t-xl border border-slate-200 border-b-0 hidden sm:block custom-scrollbar sticky top-16 z-10" 
+          ref={topScrollRef} 
+          onScroll={handleTopScroll}
+        >
+          <div style={{ width: tableInnerWidth, height: '1px' }}></div>
+        </div>
+      )}
+
       {/* Customer Table */}
-      <div className="bg-white rounded-xl border border-slate-200/90 shadow-xs overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
+      <div className="bg-white rounded-xl border border-slate-200/90 shadow-xs overflow-hidden sm:rounded-t-none sm:border-t-0">
+        <div className="overflow-x-auto custom-scrollbar" ref={tableScrollRef} onScroll={handleTableScroll}>
+          <table className="w-full text-left border-collapse" ref={tableInnerRef}>
             <thead>
               <tr className="bg-slate-50/80 border-b border-slate-200 text-xs font-bold text-slate-600 uppercase tracking-wider">
-                <th className="px-4 py-3.5 min-w-[200px]">Customer</th>
+                <th className="px-4 py-3.5 min-w-[240px] max-w-[260px] sticky left-0 z-30 bg-slate-50 border-r border-slate-200 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">Customer</th>
                 <th className="px-4 py-3.5">Phone</th>
                 <th className="px-4 py-3.5">Address</th>
                 <th className="px-4 py-3.5 text-right">Total Sales</th>
                 <th className="px-4 py-3.5 text-right">Total Received</th>
                 <th className="px-4 py-3.5 text-right">Outstanding</th>
                 <th className="px-4 py-3.5 text-center">Status</th>
-                <th className="px-4 py-3.5 text-center min-w-[240px]">Actions</th>
+                <th className="px-4 py-3.5 text-center w-16">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 text-sm">
@@ -475,19 +574,14 @@ export const CustomersPage: React.FC = () => {
                   return (
                     <tr
                       key={c.id}
-                      className="hover:bg-slate-50/80 transition-colors text-slate-800"
+                      className="hover:bg-slate-50/80 transition-colors text-slate-800 group"
                     >
                       {/* Customer Identity (English, Arabic, and Phone) */}
-                      <td className="px-4 py-3.5">
-                        <div className="font-bold text-slate-900 text-sm">{c.name}</div>
+                      <td className="px-4 py-3.5 sticky left-0 z-20 bg-white border-r border-slate-200 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] group-hover:bg-slate-50/80 transition-colors">
+                        <div className="font-bold text-slate-900 text-sm truncate" title={c.name}>{c.name}</div>
                         {c.nameAr && (
-                          <div className="text-xs text-slate-600 font-semibold mt-0.5" dir="rtl">
+                          <div className="text-xs text-slate-600 font-semibold mt-0.5 truncate" dir="rtl" title={c.nameAr}>
                             {c.nameAr}
-                          </div>
-                        )}
-                        {c.phone && (
-                          <div className="text-[11px] text-slate-400 font-mono mt-0.5">
-                            {c.phone}
                           </div>
                         )}
                       </td>
@@ -539,100 +633,134 @@ export const CustomersPage: React.FC = () => {
                         )}
                       </td>
 
-                      {/* Actions: View, New Sale, Reminder (if outstanding), More dropdown */}
+                      {/* Actions: Consolidated into More dropdown */}
                       <td className="px-4 py-3.5 text-center whitespace-nowrap">
-                        <div className="inline-flex items-center justify-center gap-1.5">
-                          {/* View Statement / Pending Invoices */}
+                        <div className="relative action-dropdown-container inline-block">
                           <button
                             type="button"
-                            onClick={() => viewPendingInvoices(c)}
-                            className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-md transition-colors cursor-pointer"
-                            title="View Invoices & Account Summary"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (openDropdownId === c.id) {
+                                setOpenDropdownId(null);
+                                setDropdownPos(null);
+                              } else {
+                                const rect = e.currentTarget.getBoundingClientRect();
+                                setDropdownPos({
+                                  top: rect.bottom,
+                                  right: window.innerWidth - rect.right,
+                                });
+                                setOpenDropdownId(c.id);
+                              }
+                            }}
+                            className="inline-flex items-center justify-center w-8 h-8 text-slate-500 hover:text-slate-900 bg-slate-50 hover:bg-slate-200 rounded-lg transition-colors cursor-pointer"
+                            aria-label="More Options"
                           >
-                            <Eye className="w-3.5 h-3.5 text-slate-500" />
-                            <span>View</span>
+                            <MoreVertical className="w-4 h-4" />
                           </button>
 
-                          {/* New Sale Button */}
-                          <button
-                            type="button"
-                            onClick={() => navigate('/sales', { state: { selectedCustomerId: c.id } })}
-                            className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-slate-900 bg-slate-100 hover:bg-slate-200 rounded-md transition-colors cursor-pointer"
-                            title="Create New Invoice for Customer"
-                          >
-                            <ShoppingBag className="w-3.5 h-3.5 text-sky-600" />
-                            <span>New Sale</span>
-                          </button>
-
-                          {/* WhatsApp Reminder (Only when outstanding > 0 & phone exists) */}
-                          {hasOutstanding && hasPhone ? (
-                            <button
-                              type="button"
-                              onClick={() => sendWhatsAppReminder(c)}
-                              className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-bold text-emerald-800 bg-emerald-100 hover:bg-emerald-200 rounded-md transition-colors cursor-pointer border border-emerald-300"
-                              title="Send WhatsApp Payment Reminder"
+                          {openDropdownId === c.id && dropdownPos && createPortal(
+                            <div 
+                              className="fixed mt-1 w-48 bg-white rounded-xl shadow-xl border border-slate-200 py-1.5 z-[100] text-left animate-in fade-in zoom-in-95"
+                              style={{ top: dropdownPos.top, right: dropdownPos.right }}
                             >
-                              <MessageCircle className="w-3.5 h-3.5 text-emerald-700" />
-                              <span>Reminder</span>
-                            </button>
-                          ) : null}
+                              {/* 1. View Invoices */}
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  viewPendingInvoices(c);
+                                  setOpenDropdownId(null);
+                                }}
+                                className="w-full px-3.5 py-2 text-xs font-semibold text-slate-800 hover:bg-slate-50 flex items-center gap-2 cursor-pointer"
+                              >
+                                <Eye className="w-3.5 h-3.5 text-slate-500" />
+                                <span>View Invoices</span>
+                              </button>
 
-                          {/* More Actions Dropdown */}
-                          <div className="relative action-dropdown-container">
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setOpenDropdownId(openDropdownId === c.id ? null : c.id);
-                              }}
-                              className="inline-flex items-center gap-0.5 px-2 py-1 text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-md transition-colors cursor-pointer"
-                              title="More Options"
-                            >
-                              <span>More</span>
-                              <ChevronDown className="w-3 h-3 text-slate-400" />
-                            </button>
+                              {/* 2. New Sale */}
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  navigate('/sales', { state: { selectedCustomerId: c.id } });
+                                  setOpenDropdownId(null);
+                                }}
+                                className="w-full px-3.5 py-2 text-xs font-semibold text-slate-800 hover:bg-slate-50 flex items-center gap-2 cursor-pointer"
+                              >
+                                <ShoppingBag className="w-3.5 h-3.5 text-sky-600" />
+                                <span>New Sale</span>
+                              </button>
 
-                            {openDropdownId === c.id && (
-                              <div className="absolute right-0 mt-1 w-44 bg-white rounded-xl shadow-xl border border-slate-200 py-1.5 z-30 text-left animate-in fade-in zoom-in-95">
-                                <button
-                                  type="button"
-                                  onClick={() => openLedgerModal(c)}
-                                  className="w-full px-3.5 py-2 text-xs font-semibold text-slate-800 hover:bg-slate-50 flex items-center gap-2 cursor-pointer"
-                                >
-                                  <BookOpen className="w-3.5 h-3.5 text-sky-600" />
-                                  <span>Customer Ledger</span>
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => openEditModal(c)}
-                                  className="w-full px-3.5 py-2 text-xs font-semibold text-slate-800 hover:bg-slate-50 flex items-center gap-2 cursor-pointer"
-                                >
-                                  <Pencil className="w-3.5 h-3.5 text-amber-600" />
-                                  <span>Edit Details</span>
-                                </button>
+                              {/* 3. Receive Payment */}
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setReceivePaymentCustomerId(c.id);
+                                  setOpenDropdownId(null);
+                                }}
+                                className="w-full px-3.5 py-2 text-xs font-semibold text-slate-800 hover:bg-slate-50 flex items-center gap-2 cursor-pointer"
+                              >
+                                <CreditCard className="w-3.5 h-3.5 text-emerald-600" />
+                                <span>Receive Payment</span>
+                              </button>
+
+                              {/* 4. Reminder */}
+                              {hasOutstanding && hasPhone && (
                                 <button
                                   type="button"
                                   onClick={() => {
-                                    viewPendingInvoices(c);
+                                    sendWhatsAppReminder(c);
                                     setOpenDropdownId(null);
                                   }}
-                                  className="w-full px-3.5 py-2 text-xs font-semibold text-slate-800 hover:bg-slate-50 flex items-center gap-2 cursor-pointer"
+                                  className="w-full px-3.5 py-2 text-xs font-semibold text-emerald-700 hover:bg-emerald-50 flex items-center gap-2 cursor-pointer"
                                 >
-                                  <FileText className="w-3.5 h-3.5 text-slate-500" />
-                                  <span>All Invoices</span>
+                                  <MessageCircle className="w-3.5 h-3.5 text-emerald-600" />
+                                  <span>Send Reminder</span>
                                 </button>
-                                <div className="h-px bg-slate-100 my-1"></div>
-                                <button
-                                  type="button"
-                                  onClick={() => handleDeleteCustomer(c)}
-                                  className="w-full px-3.5 py-2 text-xs font-semibold text-rose-700 hover:bg-rose-50 flex items-center gap-2 cursor-pointer"
-                                >
-                                  <Trash2 className="w-3.5 h-3.5 text-rose-600" />
-                                  <span>Delete Customer</span>
-                                </button>
-                              </div>
-                            )}
-                          </div>
+                              )}
+
+                              <div className="h-px bg-slate-100 my-1"></div>
+
+                              <button
+                                type="button"
+                                onClick={() => openLedgerModal(c)}
+                                className="w-full px-3.5 py-2 text-xs font-semibold text-slate-800 hover:bg-slate-50 flex items-center gap-2 cursor-pointer"
+                              >
+                                <BookOpen className="w-3.5 h-3.5 text-indigo-600" />
+                                <span>Customer Ledger</span>
+                              </button>
+                              
+                              <button
+                                type="button"
+                                onClick={() => openEditModal(c)}
+                                className="w-full px-3.5 py-2 text-xs font-semibold text-slate-800 hover:bg-slate-50 flex items-center gap-2 cursor-pointer"
+                              >
+                                <Pencil className="w-3.5 h-3.5 text-amber-600" />
+                                <span>Edit Details</span>
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setAdjustBalanceCustomerId(c.id);
+                                  setAdjustBalanceCustomerName(c.name);
+                                  setOpenDropdownId(null);
+                                }}
+                                className="w-full px-3.5 py-2 text-xs font-semibold text-slate-800 hover:bg-slate-50 flex items-center gap-2 cursor-pointer"
+                              >
+                                <DollarSign className="w-3.5 h-3.5 text-emerald-600" />
+                                <span>Adjust Opening Balance</span>
+                              </button>
+
+                              <div className="h-px bg-slate-100 my-1"></div>
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteCustomer(c)}
+                                className="w-full px-3.5 py-2 text-xs font-semibold text-rose-700 hover:bg-rose-50 flex items-center gap-2 cursor-pointer"
+                              >
+                                <Trash2 className="w-3.5 h-3.5 text-rose-600" />
+                                <span>Delete Customer</span>
+                              </button>
+                            </div>
+                          , document.body)}
                         </div>
                       </td>
                     </tr>
@@ -750,6 +878,29 @@ export const CustomersPage: React.FC = () => {
                   className="w-full px-3 py-2 text-sm bg-slate-50 border border-slate-300 rounded-xl focus:bg-white focus:border-slate-900 outline-none resize-none"
                 />
               </div>
+
+              {/* Opening Outstanding Balance (Only for new customers) */}
+              {!editCustomer && (
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                    Previous Outstanding Balance <span className="text-slate-400 font-normal">(Optional)</span>
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      step="0.001"
+                      min="0"
+                      placeholder="0.000"
+                      value={openingOutstandingKd}
+                      onChange={(e) => setOpeningOutstandingKd(e.target.value)}
+                      className="w-full px-3 py-2 text-sm font-mono font-bold bg-slate-50 border border-slate-300 rounded-xl focus:bg-white focus:border-slate-900 outline-none"
+                    />
+                    <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">
+                      K.D.
+                    </span>
+                  </div>
+                </div>
+              )}
 
               {/* Active Toggle */}
               <div className="flex items-center gap-2 pt-2">
@@ -942,6 +1093,33 @@ export const CustomersPage: React.FC = () => {
           }}
         />
       )}
+
+      {/* Adjust Opening Balance Modal */}
+      {adjustBalanceCustomerId && (
+        <AdjustOpeningBalanceModal
+          isOpen={true}
+          onClose={() => setAdjustBalanceCustomerId(null)}
+          onSuccess={() => {
+            setAdjustBalanceCustomerId(null);
+            fetchCustomers();
+            showSuccessToast('Opening balance adjusted successfully!');
+          }}
+          customerId={adjustBalanceCustomerId}
+          customerName={adjustBalanceCustomerName}
+        />
+      )}
+
+      {/* Receive Payment Modal */}
+      <ReceivePaymentModal
+        isOpen={receivePaymentCustomerId !== null}
+        onClose={() => setReceivePaymentCustomerId(null)}
+        onSuccess={() => {
+          setReceivePaymentCustomerId(null);
+          fetchCustomers();
+          showSuccessToast('Payment received successfully!');
+        }}
+        preselectedCustomerId={receivePaymentCustomerId}
+      />
     </div>
   );
 };

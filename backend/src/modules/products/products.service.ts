@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException, BadRequestException, OnModuleInit } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Like, ILike, DataSource } from 'typeorm';
+import sharp from 'sharp';
 import { Product } from '../../database/entities/product.entity.js';
 import { Category } from '../../database/entities/category.entity.js';
 import { StockLedger } from '../../database/entities/stock-ledger.entity.js';
@@ -375,6 +376,93 @@ export class ProductsService implements OnModuleInit {
     }
   }
 
+  async uploadImage(id: number, file: any, user: any) {
+    if (!file) throw new BadRequestException('No image file provided');
+    if (!file.mimetype.startsWith('image/')) throw new BadRequestException('Unsupported image format');
+
+    const product = await this.productRepo.findOne({ where: { id } });
+    if (!product) throw new NotFoundException(`Product with ID ${id} not found.`);
+
+    let webpBuffer: Buffer;
+    try {
+      const image = sharp(file.buffer);
+      const metadata = await image.metadata();
+
+      if (!metadata.format) {
+        throw new Error('Not a decodable image');
+      }
+
+      // Initial optimization target
+      webpBuffer = await image
+        .rotate() // auto-orient based on EXIF
+        .resize({ width: 1200, height: 1200, fit: 'inside', withoutEnlargement: true })
+        .webp({ effort: 4, quality: 80 })
+        .toBuffer();
+
+      // Adaptive quality reduction if too large
+      if (webpBuffer.length > 400 * 1024) {
+        webpBuffer = await sharp(webpBuffer).webp({ quality: 60 }).toBuffer();
+      }
+    } catch (error) {
+      throw new BadRequestException('Could not process this image. Please choose another image.');
+    }
+
+    product.imageData = webpBuffer;
+    product.imageMimeType = 'image/webp';
+    product.imageUpdatedAt = new Date();
+
+    await this.productRepo.save(product);
+
+    await this.auditService.log({
+      action: product.imageUpdatedAt ? 'PRODUCT_IMAGE_CHANGED' : 'PRODUCT_IMAGE_ADDED',
+      entityType: 'PRODUCT',
+      entityId: String(product.id),
+      performedBy: user?.displayName || 'Owner',
+      details: { articleNumber: product.articleNumber },
+    });
+
+    return { success: true, message: 'Image uploaded successfully', imageUpdatedAt: product.imageUpdatedAt };
+  }
+
+  async getImage(id: number) {
+    const product = await this.productRepo
+      .createQueryBuilder('product')
+      .select(['product.id', 'product.imageData', 'product.imageMimeType', 'product.imageUpdatedAt'])
+      .where('product.id = :id', { id })
+      .getOne();
+
+    if (!product || !product.imageData) {
+      throw new NotFoundException('Image not found');
+    }
+
+    return {
+      buffer: product.imageData,
+      mimeType: product.imageMimeType || 'image/webp',
+      updatedAt: product.imageUpdatedAt,
+    };
+  }
+
+  async deleteImage(id: number, user: any) {
+    const product = await this.productRepo.findOne({ where: { id } });
+    if (!product) throw new NotFoundException(`Product with ID ${id} not found.`);
+
+    product.imageData = null;
+    product.imageMimeType = null;
+    product.imageUpdatedAt = null;
+
+    await this.productRepo.save(product);
+
+    await this.auditService.log({
+      action: 'PRODUCT_IMAGE_REMOVED',
+      entityType: 'PRODUCT',
+      entityId: String(product.id),
+      performedBy: user?.displayName || 'Owner',
+      details: { articleNumber: product.articleNumber },
+    });
+
+    return { success: true, message: 'Image removed successfully' };
+  }
+
   // Categories
   async getCategories() {
     return this.categoryRepo.find({ order: { nameEn: 'ASC' } });
@@ -534,6 +622,8 @@ export class ProductsService implements OnModuleInit {
         displayDozPcs: `${dozen} Doz ${pieces} Pcs`,
       },
       isLowStock,
+      hasImage: !!product.imageUpdatedAt,
+      imageUpdatedAt: product.imageUpdatedAt,
       status: stockPcs <= 0 ? 'OUT_OF_STOCK' : isLowStock ? 'LOW_STOCK' : 'IN_STOCK',
     };
   }

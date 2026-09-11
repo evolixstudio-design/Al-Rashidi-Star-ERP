@@ -9,6 +9,8 @@ import { Product } from '../../database/entities/product.entity.js';
 import { Customer } from '../../database/entities/customer.entity.js';
 import { Expense } from '../../database/entities/expense.entity.js';
 import { Category } from '../../database/entities/category.entity.js';
+import { SalesReturn } from '../../database/entities/sales-return.entity.js';
+import { SalesReturnLine } from '../../database/entities/sales-return-line.entity.js';
 
 function getDefaultDates(from?: string, to?: string) {
   const now = new Date();
@@ -40,6 +42,10 @@ export class ReportsService {
     private readonly expenseRepo: Repository<Expense>,
     @InjectRepository(Category)
     private readonly categoryRepo: Repository<Category>,
+    @InjectRepository(SalesReturn)
+    private readonly salesReturnRepo: Repository<SalesReturn>,
+    @InjectRepository(SalesReturnLine)
+    private readonly salesReturnLineRepo: Repository<SalesReturnLine>,
   ) {}
 
   /**
@@ -104,6 +110,17 @@ export class ReportsService {
       paymentMethodMap.set(method, pmData);
     }
 
+    // Get total returns in date range
+    const returnSumRaw = await this.salesReturnRepo
+      .createQueryBuilder('sr')
+      .select('SUM(sr.totalReturnAmountKd)', 'totalReturn')
+      .where('sr.status = :status', { status: 'POSTED' })
+      .andWhere('sr.returnDate >= :from', { from })
+      .andWhere('sr.returnDate <= :to', { to })
+      .getRawOne();
+      
+    const totalReturnedKd = Number(returnSumRaw?.totalReturn || 0);
+
     // Top selling products in date range
     const topProductsRaw = await this.invoiceLineRepo
       .createQueryBuilder('line')
@@ -146,7 +163,9 @@ export class ReportsService {
     }));
 
     const summary = {
-      totalSalesKd: Number(totalSalesKd.toFixed(3)),
+      totalGrossSalesKd: Number(totalSalesKd.toFixed(3)),
+      totalReturnedKd: Number(totalReturnedKd.toFixed(3)),
+      totalSalesKd: Number((totalSalesKd - totalReturnedKd).toFixed(3)),
       totalReceivedKd: Number(totalReceivedKd.toFixed(3)),
       totalOutstandingKd: Number(totalOutstandingKd.toFixed(3)),
       postedCount,
@@ -450,6 +469,7 @@ export class ReportsService {
 
     const customerList = customers.map((c) => {
       const out = Number(c.totalOutstanding) || 0;
+      const opening = Number(c.openingOutstandingKd) || 0;
       const sales = Number(c.totalSales) || 0;
       const received = Number(c.totalReceived) || 0;
 
@@ -491,6 +511,8 @@ export class ReportsService {
         phone: c.phone || null,
         totalSalesKd: Number(sales.toFixed(3)),
         totalReceivedKd: Number(received.toFixed(3)),
+        openingOutstandingKd: Number(opening.toFixed(3)),
+        invoiceOutstandingKd: Number(Math.max(0, out - opening).toFixed(3)),
         outstandingKd: Number(out.toFixed(3)),
         unpaidInvoiceCount: unpaidInvoices.length,
         oldestUnpaidDate,
@@ -618,6 +640,17 @@ export class ReportsService {
     const totalRevenueKd = Number(invoiceSumRaw?.totalRevenue || 0);
     const invoiceCount = Number(invoiceSumRaw?.invoiceCount || 0);
 
+    const returnSumRaw = await this.salesReturnRepo
+      .createQueryBuilder('sr')
+      .select('SUM(sr.totalReturnAmountKd)', 'totalReturn')
+      .where('sr.status = :status', { status: 'POSTED' })
+      .andWhere('sr.returnDate >= :from', { from })
+      .andWhere('sr.returnDate <= :to', { to })
+      .getRawOne();
+      
+    const totalReturnsKd = Number(returnSumRaw?.totalReturn || 0);
+    const netRevenueKd = totalRevenueKd - totalReturnsKd;
+
     // 2. Cost of Goods Sold (COGS) for lines belonging to posted invoices in range
     const cogsLines = await this.invoiceLineRepo
       .createQueryBuilder('line')
@@ -639,9 +672,27 @@ export class ReportsService {
       totalCogsKd += lineCogs;
     }
 
-    const grossProfitKd = totalRevenueKd - totalCogsKd;
-    const grossMarginPercent = totalRevenueKd > 0
-      ? Number(((grossProfitKd / totalRevenueKd) * 100).toFixed(2))
+    const cogsReturnsLines = await this.salesReturnLineRepo
+      .createQueryBuilder('srl')
+      .innerJoin('srl.salesReturn', 'sr')
+      .innerJoinAndSelect('srl.product', 'prod')
+      .where('sr.status = :status', { status: 'POSTED' })
+      .andWhere('sr.returnDate >= :from', { from })
+      .andWhere('sr.returnDate <= :to', { to })
+      .getMany();
+
+    let totalReturnedCogsKd = 0;
+    for (const line of cogsReturnsLines) {
+      const pcs = Number(line.returnTotalPcs) || 0;
+      const costPricePerDozen = Number(line.product?.purchasePrice) || 0;
+      const lineCogs = (pcs / 12) * costPricePerDozen;
+      totalReturnedCogsKd += lineCogs;
+    }
+
+    const netCogsKd = totalCogsKd - totalReturnedCogsKd;
+    const grossProfitKd = netRevenueKd - netCogsKd;
+    const grossMarginPercent = netRevenueKd > 0
+      ? Number(((grossProfitKd / netRevenueKd) * 100).toFixed(2))
       : 0;
 
     // 3. Operating Expenses in range
@@ -678,23 +729,27 @@ export class ReportsService {
 
     // 4. Net Profit
     const netProfitKd = grossProfitKd - totalExpensesKd;
-    const netMarginPercent = totalRevenueKd > 0
-      ? Number(((netProfitKd / totalRevenueKd) * 100).toFixed(2))
+    const netMarginPercent = netRevenueKd > 0
+      ? Number(((netProfitKd / netRevenueKd) * 100).toFixed(2))
       : 0;
 
     return {
       dateRange: { from, to },
       revenue: {
-        totalRevenueKd: Number(totalRevenueKd.toFixed(3)),
+        totalGrossRevenueKd: Number(totalRevenueKd.toFixed(3)),
+        totalReturnsKd: Number(totalReturnsKd.toFixed(3)),
+        totalRevenueKd: Number(netRevenueKd.toFixed(3)),
         invoiceCount,
         totalItemsSoldPcs,
         totalItemsSoldDozen: Math.floor(totalItemsSoldPcs / 12),
       },
       cogs: {
-        totalCogsKd: Number(totalCogsKd.toFixed(3)),
+        grossCogsKd: Number(totalCogsKd.toFixed(3)),
+        returnedCogsKd: Number(totalReturnedCogsKd.toFixed(3)),
+        totalCogsKd: Number(netCogsKd.toFixed(3)),
       },
       costOfGoodsSold: {
-        totalCogsKd: Number(totalCogsKd.toFixed(3)),
+        totalCogsKd: Number(netCogsKd.toFixed(3)),
       },
       grossProfit: {
         grossProfitKd: Number(grossProfitKd.toFixed(3)),
