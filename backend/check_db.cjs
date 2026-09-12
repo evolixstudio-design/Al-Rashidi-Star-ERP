@@ -1,12 +1,10 @@
 const pg = require('pg');
 
-const c = new pg.Client({
-  host: 'localhost',
-  port: 5432,
-  user: 'postgres',
-  password: 'Qusai5253',
-  database: 'rashidi_erp',
-});
+const connectionString = process.env.DATABASE_URL;
+if (!connectionString) {
+  throw new Error("DATABASE_URL is required");
+}
+const c = new pg.Client({ connectionString });
 
 async function main() {
   await c.connect();

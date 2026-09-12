@@ -48,7 +48,7 @@ export class BackupService {
     const host = this.configService.get<string>('DB_HOST', '127.0.0.1');
     const port = this.configService.get<string>('DB_PORT', '5432');
     const username = this.configService.get<string>('DB_USERNAME', 'postgres');
-    const password = this.configService.get<string>('DB_PASSWORD', 'Qusai5253');
+    const password = this.configService.get<string>('DB_PASSWORD');
     const dbName = this.configService.get<string>('DB_DATABASE', 'rashidi_erp');
 
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');

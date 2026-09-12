@@ -65,7 +65,7 @@ import { SalesReturnsModule } from './modules/sales-returns/sales-returns.module
                 host: configService.get<string>('DB_HOST', 'localhost'),
                 port: parseInt(configService.get<string>('DB_PORT', '5432'), 10),
                 username: configService.get<string>('DB_USERNAME', 'postgres'),
-                password: configService.get<string>('DB_PASSWORD', 'Qusai5253'),
+                password: configService.get<string>('DB_PASSWORD'),
                 database: configService.get<string>('DB_DATABASE', 'rashidi_erp'),
                 ssl: configService.get<string>('DB_SSL') === 'true' ? { rejectUnauthorized: false } : false,
               }),

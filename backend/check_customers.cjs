@@ -1,5 +1,9 @@
 const { Client } = require('pg');
-const client = new Client({ connectionString: 'postgresql://postgres:Qusai5253@localhost:5432/rashidi_erp_recovery?schema=public' });
+const connectionString = process.env.DATABASE_URL;
+if (!connectionString) {
+    throw new Error("DATABASE_URL is required");
+}
+const client = new Client({ connectionString });
 
 async function run() {
   await client.connect();

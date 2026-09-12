@@ -1,8 +1,10 @@
 import { Client } from 'pg';
 
-const client = new Client({
-  connectionString: 'postgres://postgres:Qusai5253@127.0.0.1:5432/rashidi_erp'
-});
+const connectionString = process.env.DATABASE_URL;
+if (!connectionString) {
+  throw new Error("DATABASE_URL is required");
+}
+const client = new Client({ connectionString });
 
 const query = `
 DO $$

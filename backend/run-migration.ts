@@ -1,6 +1,9 @@
 import { DataSource } from 'typeorm';
 
-const databaseUrl = "postgresql://neondb_owner:npg_hJCe9Rq0aBGj@ep-odd-rain-b3eddtev-pooler.c-4.ap-southeast-1.aws.neon.tech/neondb?channel_binding=require&sslmode=require";
+const databaseUrl = process.env.DATABASE_URL;
+if (!databaseUrl) {
+  throw new Error("DATABASE_URL is required");
+}
 
 const AppDataSource = new DataSource({
   type: 'postgres',
