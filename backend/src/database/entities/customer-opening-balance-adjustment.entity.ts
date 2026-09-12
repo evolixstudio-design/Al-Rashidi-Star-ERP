@@ -12,7 +12,7 @@ import { Customer } from './customer.entity.js';
 
 @Entity('customer_opening_balance_adjustments')
 export class CustomerOpeningBalanceAdjustment {
-  @PrimaryGeneratedColumn()
+  @PrimaryGeneratedColumn({ type: 'int' })
   id!: number;
 
   @Index()

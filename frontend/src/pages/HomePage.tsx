@@ -161,7 +161,7 @@ export const HomePage: React.FC = () => {
       if (!isSilent) setLoading(true);
       else setRefreshing(true);
 
-      const [compRes, sumRes, pendingRes, lowRes, transRes] = await Promise.all([
+      const [compRes, sumRes, pendingRes, lowRes, transRes] = await Promise.allSettled([
         api.get('/settings/company'),
         api.get('/dashboard/summary'),
         api.get('/dashboard/pending-payments?limit=5'),
@@ -169,11 +169,18 @@ export const HomePage: React.FC = () => {
         api.get('/dashboard/recent-transactions?limit=8'),
       ]);
 
-      setCompany(compRes.data);
-      setSummary(sumRes.data);
-      setPendingPayments(pendingRes.data);
-      setLowStock(lowRes.data);
-      setRecentTransactions(transRes.data);
+      if (compRes.status === 'fulfilled') setCompany(compRes.value.data);
+      if (sumRes.status === 'fulfilled') setSummary(sumRes.value.data);
+      else console.error('Failed to load summary:', sumRes.reason);
+      
+      if (pendingRes.status === 'fulfilled') setPendingPayments(pendingRes.value.data);
+      else console.error('Failed to load pending payments:', pendingRes.reason);
+      
+      if (lowRes.status === 'fulfilled') setLowStock(lowRes.value.data);
+      else console.error('Failed to load low stock:', lowRes.reason);
+      
+      if (transRes.status === 'fulfilled') setRecentTransactions(transRes.value.data);
+      else console.error('Failed to load recent transactions:', transRes.reason);
     } catch (err) {
       console.error('Failed to load dashboard data', err);
     } finally {

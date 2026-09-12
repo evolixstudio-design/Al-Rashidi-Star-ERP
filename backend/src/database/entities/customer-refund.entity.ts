@@ -18,14 +18,14 @@ export class CustomerRefund {
   @Column({ length: 50, unique: true })
   refundNumber!: string;
 
-  @Column()
+  @Column({ type: 'int' })
   salesReturnId!: number;
 
   @ManyToOne(() => SalesReturn, (salesReturn) => salesReturn.refunds, { onDelete: 'RESTRICT' })
   @JoinColumn({ name: 'salesReturnId' })
   salesReturn!: Relation<SalesReturn>;
 
-  @Column()
+  @Column({ type: 'int' })
   customerId!: number;
 
   @ManyToOne(() => Customer, { onDelete: 'RESTRICT' })

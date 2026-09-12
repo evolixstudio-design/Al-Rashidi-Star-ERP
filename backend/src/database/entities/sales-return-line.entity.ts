@@ -15,34 +15,34 @@ export class SalesReturnLine {
   @PrimaryGeneratedColumn()
   id!: number;
 
-  @Column()
+  @Column({ type: 'int' })
   salesReturnId!: number;
 
   @ManyToOne(() => SalesReturn, (salesReturn) => salesReturn.lines, { onDelete: 'RESTRICT' })
   @JoinColumn({ name: 'salesReturnId' })
   salesReturn!: Relation<SalesReturn>;
 
-  @Column()
+  @Column({ type: 'int' })
   invoiceLineId!: number;
 
   @ManyToOne(() => SalesInvoiceLine, { onDelete: 'RESTRICT' })
   @JoinColumn({ name: 'invoiceLineId' })
   invoiceLine!: Relation<SalesInvoiceLine>;
 
-  @Column()
+  @Column({ type: 'int' })
   productId!: number;
 
   @ManyToOne(() => Product, { onDelete: 'RESTRICT' })
   @JoinColumn({ name: 'productId' })
   product!: Relation<Product>;
 
-  @Column({ default: 0 })
+  @Column({ type: 'int', default: 0 })
   returnDozen!: number;
 
-  @Column({ default: 0 })
+  @Column({ type: 'int', default: 0 })
   returnPieces!: number;
 
-  @Column({ default: 0 })
+  @Column({ type: 'int', default: 0 })
   returnTotalPcs!: number;
 
   @Column({ type: 'decimal', precision: 12, scale: 3, default: 0 })

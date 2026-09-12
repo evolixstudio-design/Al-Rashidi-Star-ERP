@@ -21,14 +21,14 @@ export class SalesReturn {
   @Column({ length: 50, unique: true })
   returnNumber!: string;
 
-  @Column()
+  @Column({ type: 'int' })
   invoiceId!: number;
 
   @ManyToOne(() => SalesInvoice, (invoice) => invoice.returns, { onDelete: 'RESTRICT' })
   @JoinColumn({ name: 'invoiceId' })
   invoice!: Relation<SalesInvoice>;
 
-  @Column()
+  @Column({ type: 'int' })
   customerId!: number;
 
   @ManyToOne(() => Customer, { onDelete: 'RESTRICT' })
@@ -47,7 +47,7 @@ export class SalesReturn {
   @Column({ type: 'decimal', precision: 12, scale: 3, default: 0 })
   refundRequiredKd!: number | string;
 
-  @Column({ default: 0 })
+  @Column({ type: 'int', default: 0 })
   totalReturnPcs!: number;
 
   @Column({ length: 50, default: 'CUSTOMER_RETURN' })
