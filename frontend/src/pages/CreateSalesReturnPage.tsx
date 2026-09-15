@@ -5,6 +5,9 @@ import { useSalesReturns } from '../hooks/useSalesReturns';
 import api from '../services/api';
 import { normalizeSearchText } from '../utils/searchUtils';
 
+import { createPortal } from 'react-dom';
+import { useViewportDropdown } from '../hooks/useViewportDropdown';
+
 const InvoiceCombobox = ({
   invoices,
   onSelect,
@@ -14,28 +17,38 @@ const InvoiceCombobox = ({
   onSelect: (inv: any) => void;
   disabled?: boolean;
 }) => {
-  const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState('');
   const [highlightedIndex, setHighlightedIndex] = useState(0);
 
   const containerRef = useRef<HTMLDivElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  const { isOpen, setIsOpen, style } = useViewportDropdown(containerRef);
 
   useEffect(() => {
     const handleOutsideClick = (e: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+      const target = e.target as Node;
+      if (
+        containerRef.current && 
+        !containerRef.current.contains(target) &&
+        dropdownRef.current &&
+        !dropdownRef.current.contains(target)
+      ) {
         setIsOpen(false);
       }
     };
     if (isOpen) {
       document.addEventListener('mousedown', handleOutsideClick);
-      inputRef.current?.focus();
+      setTimeout(() => {
+        inputRef.current?.focus();
+      }, 50);
       setHighlightedIndex(0);
     } else {
       setSearch('');
     }
     return () => document.removeEventListener('mousedown', handleOutsideClick);
-  }, [isOpen]);
+  }, [isOpen, setIsOpen]);
 
   const filtered = useMemo(() => {
     let list = invoices.filter(i => i.status === 'POSTED');
@@ -83,23 +96,29 @@ const InvoiceCombobox = ({
   };
 
   return (
-    <div className="relative w-full" ref={containerRef}>
-      {!isOpen ? (
+    <>
+      <div className="relative w-full" ref={containerRef}>
         <div 
           tabIndex={disabled ? -1 : 0}
           onKeyDown={handleKeyDown}
-          onClick={() => { if (!disabled) setIsOpen(true); }}
-          className={`w-full px-4 py-3 border border-slate-200 rounded-xl flex items-center justify-between transition-all ${disabled ? 'bg-slate-50 text-slate-500 cursor-not-allowed' : 'bg-slate-50 hover:bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-600 cursor-pointer'}`}
+          onClick={() => { if (!disabled) setIsOpen(!isOpen); }}
+          className={`w-full px-4 py-3 border rounded-xl flex items-center justify-between transition-all min-h-touch ${disabled ? 'bg-slate-50 border-slate-200 text-slate-500 cursor-not-allowed' : isOpen ? 'bg-white border-blue-600 ring-2 ring-blue-600/20 text-slate-900 cursor-pointer' : 'bg-slate-50 border-slate-200 hover:bg-white text-slate-900 hover:border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-600 cursor-pointer'}`}
         >
-          <div className="flex items-center text-slate-500">
-            <Search size={20} className="mr-3" />
-            <span>Search by invoice number, customer name, Arabic name, or phone...</span>
+          <div className="flex items-center text-slate-500 min-w-0 pr-4">
+            <Search size={20} className="mr-3 shrink-0" />
+            <span className="truncate">Search by invoice number, customer name, Arabic name, or phone...</span>
           </div>
-          <ChevronDown size={20} className="text-slate-400" />
+          <ChevronDown size={20} className={`text-slate-400 shrink-0 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
         </div>
-      ) : (
-        <div className="w-full bg-white border border-slate-300 rounded-xl shadow-2xl z-50 overflow-hidden absolute top-0 left-0">
-          <div className="p-3 border-b border-slate-100 flex items-center bg-slate-50">
+      </div>
+
+      {isOpen && createPortal(
+        <div 
+          ref={dropdownRef}
+          className="bg-white border border-slate-300 rounded-xl shadow-2xl flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-100"
+          style={{ ...style, maxWidth: 'calc(100vw - 32px)' }}
+        >
+          <div className="p-3 border-b border-slate-100 flex items-center bg-slate-50 shrink-0">
             <Search size={20} className="text-blue-600 ml-2 mr-3 shrink-0" />
             <input
               ref={inputRef}
@@ -114,7 +133,7 @@ const InvoiceCombobox = ({
               className="w-full bg-transparent border-none text-base focus:outline-none focus:ring-0 py-1"
             />
           </div>
-          <div className="max-h-96 overflow-y-auto py-2">
+          <div className="overflow-y-auto custom-scrollbar touch-scroll flex-1 py-2">
             {filtered.length === 0 ? (
               <div className="px-6 py-8 text-slate-500 text-center">
                 <p className="font-medium text-slate-700">No eligible invoice found.</p>
@@ -129,32 +148,34 @@ const InvoiceCombobox = ({
                     setIsOpen(false);
                   }}
                   onMouseEnter={() => setHighlightedIndex(idx)}
-                  className={`px-5 py-3 cursor-pointer border-b border-slate-50 last:border-0 ${highlightedIndex === idx ? 'bg-blue-50/70' : 'hover:bg-slate-50'}`}
+                  className={`px-5 py-3 cursor-pointer border-b border-slate-50 last:border-0 min-h-touch ${highlightedIndex === idx ? 'bg-blue-50/70' : 'hover:bg-slate-50'}`}
                 >
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <div className="font-bold text-slate-900 text-sm mb-1">{inv.invoiceNumber}</div>
-                      <div className="text-slate-700 font-medium text-sm">
+                  <div className="flex justify-between items-start gap-4">
+                    <div className="min-w-0 flex-1">
+                      <div className="font-bold text-slate-900 text-sm mb-1 truncate">{inv.invoiceNumber}</div>
+                      <div className="text-slate-700 font-medium text-sm truncate">
                         {inv.customer?.name}
                         {inv.customer?.nameAr && <span className="font-arabic font-normal text-slate-500 ml-1.5">({inv.customer.nameAr})</span>}
                       </div>
                       {inv.customer?.phone && <div className="text-xs text-slate-500 mt-0.5">{inv.customer.phone}</div>}
                     </div>
-                    <div className="text-right">
+                    <div className="text-right shrink-0">
                       <div className="text-sm font-semibold text-slate-700">{new Date(inv.invoiceDate).toLocaleDateString()}</div>
-                      <div className="text-sm font-bold text-blue-700 mt-1">KD {Number(inv.totalAmountKd).toFixed(3)}</div>
-                      <div className="text-xs text-slate-500 mt-0.5">Total Pcs: {inv.totalPcs}</div>
+                      <div className="text-sm font-bold text-blue-700 mt-1 whitespace-nowrap">KD {Number(inv.totalAmountKd).toFixed(3)}</div>
+                      <div className="text-xs text-slate-500 mt-0.5 whitespace-nowrap">Total Pcs: {inv.totalPcs}</div>
                     </div>
                   </div>
                 </div>
               ))
             )}
           </div>
-        </div>
+        </div>,
+        document.body
       )}
-    </div>
+    </>
   );
 };
+
 
 export const CreateSalesReturnPage: React.FC = () => {
   const navigate = useNavigate();
@@ -346,8 +367,9 @@ export const CreateSalesReturnPage: React.FC = () => {
 
             <div>
               <h3 className="font-semibold text-slate-900 mb-4">Select Return Quantities</h3>
-              <div className="border border-slate-200 rounded-xl overflow-hidden">
-                <table className="w-full text-left">
+              {/* Desktop Table */}
+              <div className="hidden md:block border border-slate-200 rounded-xl overflow-hidden overflow-x-auto">
+                <table className="w-full text-left min-w-[800px]">
                   <thead className="bg-slate-50 border-b border-slate-200">
                     <tr>
                       <th className="py-3 px-4 text-xs font-semibold text-slate-500 uppercase">Product</th>
@@ -409,6 +431,61 @@ export const CreateSalesReturnPage: React.FC = () => {
                     })}
                   </tbody>
                 </table>
+              </div>
+
+              {/* Mobile Card List */}
+              <div className="md:hidden space-y-4">
+                {invoice.lines?.map((line: any) => {
+                  const ret = returnLines[line.id] || { dozen: 0, pieces: 0 };
+                  const currentRetPcs = (ret.dozen || 0) * 12 + (ret.pieces || 0);
+                  const isOverReturn = currentRetPcs > line.remainingPcs;
+
+                  return (
+                    <div key={line.id} className={`p-4 rounded-xl border ${currentRetPcs > 0 ? (isOverReturn ? 'bg-red-50 border-red-200' : 'bg-blue-50 border-blue-200') : 'bg-white border-slate-200'}`}>
+                      <div className="font-medium text-slate-900">{line.product?.nameEn}</div>
+                      <div className="text-xs text-slate-500 mb-3">{line.product?.articleNumber}</div>
+                      
+                      <div className="grid grid-cols-2 gap-2 mb-4 text-sm">
+                        <div className="bg-slate-50 p-2 rounded border border-slate-100">
+                          <div className="text-xs text-slate-500">Orig. Qty</div>
+                          <div className="font-medium">{line.dozen}dz {line.pieces}pcs</div>
+                        </div>
+                        <div className="bg-emerald-50 p-2 rounded border border-emerald-100">
+                          <div className="text-xs text-emerald-600">Remaining</div>
+                          <div className="font-medium text-emerald-700">{Math.floor(line.remainingPcs / 12)}dz {line.remainingPcs % 12}pcs</div>
+                        </div>
+                      </div>
+                      
+                      <div className="flex gap-3 items-end">
+                        <div className="flex-1">
+                          <label className="block text-xs font-semibold text-slate-600 mb-1">Return Dz</label>
+                          <input
+                            type="number"
+                            min="0"
+                            disabled={line.remainingPcs === 0}
+                            className={`w-full px-3 py-2 border rounded-lg text-center focus:ring-2 focus:ring-blue-600 min-h-touch ${isOverReturn ? 'border-red-500' : 'border-slate-200'}`}
+                            value={ret.dozen || ''}
+                            onChange={(e) => handleQuantityChange(line.id, 'dozen', e.target.value)}
+                            placeholder="0"
+                          />
+                        </div>
+                        <div className="flex-1">
+                          <label className="block text-xs font-semibold text-slate-600 mb-1">Return Pcs</label>
+                          <input
+                            type="number"
+                            min="0"
+                            max="11"
+                            disabled={line.remainingPcs === 0}
+                            className={`w-full px-3 py-2 border rounded-lg text-center focus:ring-2 focus:ring-blue-600 min-h-touch ${isOverReturn ? 'border-red-500' : 'border-slate-200'}`}
+                            value={ret.pieces || ''}
+                            onChange={(e) => handleQuantityChange(line.id, 'pieces', e.target.value)}
+                            placeholder="0"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
               
               {invoice.lines?.every((l: any) => l.remainingPcs === 0) && (

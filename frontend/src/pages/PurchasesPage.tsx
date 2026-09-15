@@ -525,7 +525,9 @@ export const PurchasesPage: React.FC = () => {
             </p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <>
+            {/* Desktop Table */}
+            <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-left border-collapse min-w-[900px]">
               <thead>
                 <tr className="bg-slate-50 border-b border-slate-200 text-slate-700 text-xs font-bold uppercase tracking-wider">
@@ -637,6 +639,89 @@ export const PurchasesPage: React.FC = () => {
               </tbody>
             </table>
           </div>
+
+          {/* Mobile Card List */}
+          <div className="md:hidden divide-y divide-slate-100">
+            {filteredReceipts.map((rec) => (
+              <div key={rec.id} className="p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-emerald-700 text-base">
+                    {rec.receiptNumber}
+                  </span>
+                  <span className="font-extrabold text-slate-900 text-base">
+                    {Number(rec.totalAmountKd).toFixed(3)} <span className="text-xs text-slate-500">KD</span>
+                  </span>
+                </div>
+
+                <div>
+                  <div className="font-bold text-slate-900">{rec.supplier?.name || 'Direct / Local Purchase'}</div>
+                  <div className="text-xs text-slate-500">{rec.supplier?.country || 'Local Market'}</div>
+                  <div className="text-xs text-slate-400 mt-1 flex items-center gap-2">
+                    <span>{rec.receiptDate}</span>
+                    <span>• {rec.totalPcsBreakdown?.display}</span>
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2 text-xs">
+                  {rec.shipmentContainerNo && (
+                    <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-600 font-medium">
+                      Cont: {rec.shipmentContainerNo}
+                    </span>
+                  )}
+                  {rec.supplierInvoiceRef && (
+                    <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-600 font-medium">
+                      Inv: {rec.supplierInvoiceRef}
+                    </span>
+                  )}
+                  {rec.status === 'CANCELLED' && (
+                    <span className="px-2 py-0.5 rounded bg-rose-50 text-rose-600 font-semibold border border-rose-200">
+                      Cancelled
+                    </span>
+                  )}
+                </div>
+
+                <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
+                  <button
+                    type="button"
+                    onClick={() => setAuditRef(rec.receiptNumber)}
+                    className="p-1.5 text-slate-400 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
+                  >
+                    <History size={16} />
+                  </button>
+
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => setActiveReceipt(rec)}
+                      className="px-2.5 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-bold text-xs rounded-lg border border-emerald-200 transition-colors cursor-pointer inline-flex items-center gap-1.5 min-h-touch"
+                    >
+                      <Eye size={14} />
+                      <span>View</span>
+                    </button>
+                    {rec.status !== 'CANCELLED' && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => handleCancelReceipt(rec)}
+                          className="px-2.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-xs rounded-lg border border-rose-200 transition-colors cursor-pointer min-h-touch"
+                        >
+                          <Ban size={14} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteReceipt(rec)}
+                          className="px-2.5 py-1.5 bg-rose-100 hover:bg-rose-200 text-rose-800 font-bold text-xs rounded-lg border border-rose-300 transition-colors cursor-pointer min-h-touch"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </>
         )}
       </div>
 
@@ -1054,71 +1139,116 @@ export const PurchasesPage: React.FC = () => {
                         {t.purchases.noItemsAdded}
                       </div>
                     ) : (
-                      <table className="w-full text-left border-collapse text-sm">
-                        <thead>
-                          <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 text-xs font-bold uppercase">
-                            <th className="py-2.5 px-3">Article</th>
-                            <th className="py-2.5 px-3">{lang === 'hi' ? 'Product Naam' : 'Product Name'}</th>
-                            <th className="py-2.5 px-3 text-right">Dozen + Pcs</th>
-                            <th className="py-2.5 px-3 text-right">Total Pcs</th>
-                            <th className="py-2.5 px-3 text-right">Cost (K.D.)</th>
-                            <th className="py-2.5 px-3 text-right">Line Total (K.D.)</th>
-                            <th className="py-2.5 px-3 text-center">Action</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-200">
+                      <>
+                        <div className="hidden md:block">
+                          <table className="w-full text-left border-collapse text-sm">
+                            <thead>
+                              <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 text-xs font-bold uppercase">
+                                <th className="py-2.5 px-3">Article</th>
+                                <th className="py-2.5 px-3">{lang === 'hi' ? 'Product Naam' : 'Product Name'}</th>
+                                <th className="py-2.5 px-3 text-right">Dozen + Pcs</th>
+                                <th className="py-2.5 px-3 text-right">Total Pcs</th>
+                                <th className="py-2.5 px-3 text-right">Cost (K.D.)</th>
+                                <th className="py-2.5 px-3 text-right">Line Total (K.D.)</th>
+                                <th className="py-2.5 px-3 text-center">Action</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-200">
+                              {lines.map((item, idx) => (
+                                <tr key={idx} className="hover:bg-slate-50/80">
+                                  <td className="py-2.5 px-3 font-bold text-emerald-700">
+                                    {item.articleNumber}
+                                  </td>
+                                  <td className="py-2.5 px-3 font-semibold text-slate-900">
+                                    {item.nameEn}
+                                  </td>
+                                  <td className="py-2.5 px-3 text-right font-medium text-slate-700">
+                                    {item.dozen} Doz {item.pieces} Pcs
+                                  </td>
+                                  <td className="py-2.5 px-3 text-right font-extrabold text-slate-900">
+                                    {item.totalPcs} Pcs
+                                  </td>
+                                  <td className="py-2.5 px-3 text-right text-slate-800 font-medium">
+                                    {Number(item.unitCostKd).toFixed(3)}
+                                  </td>
+                                  <td className="py-2.5 px-3 text-right font-bold text-slate-900">
+                                    {Number(item.lineTotalKd).toFixed(3)}
+                                  </td>
+                                  <td className="py-2.5 px-3 text-center">
+                                    <button
+                                      type="button"
+                                      onClick={() => handleRemoveLine(idx)}
+                                      className="text-rose-600 hover:text-rose-800 p-1 hover:bg-rose-50 rounded-md font-bold text-xs cursor-pointer min-h-touch min-w-touch"
+                                      title="Remove line"
+                                    >
+                                      <Trash2 size={16} />
+                                    </button>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                            <tfoot>
+                              <tr className="bg-slate-100 border-t-2 border-slate-300 text-slate-900 font-extrabold">
+                                <td colSpan={2} className="py-3 px-3 uppercase text-xs">
+                                  Grand Totals
+                                </td>
+                                <td className="py-3 px-3 text-right">
+                                  {wizardTotalDoz} Doz {wizardTotalPcsRem} Pcs
+                                </td>
+                                <td className="py-3 px-3 text-right text-base text-emerald-700">
+                                  {wizardTotalPcs} Pcs
+                                </td>
+                                <td></td>
+                                <td className="py-3 px-3 text-right text-base text-slate-900">
+                                  {wizardTotalAmountKd.toFixed(3)} {t.common.currency}
+                                </td>
+                                <td></td>
+                              </tr>
+                            </tfoot>
+                          </table>
+                        </div>
+
+                        {/* Mobile Card List */}
+                        <div className="md:hidden divide-y divide-slate-100">
                           {lines.map((item, idx) => (
-                            <tr key={idx} className="hover:bg-slate-50/80">
-                              <td className="py-2.5 px-3 font-bold text-emerald-700">
-                                {item.articleNumber}
-                              </td>
-                              <td className="py-2.5 px-3 font-semibold text-slate-900">
-                                {item.nameEn}
-                              </td>
-                              <td className="py-2.5 px-3 text-right font-medium text-slate-700">
-                                {item.dozen} Doz {item.pieces} Pcs
-                              </td>
-                              <td className="py-2.5 px-3 text-right font-extrabold text-slate-900">
-                                {item.totalPcs} Pcs
-                              </td>
-                              <td className="py-2.5 px-3 text-right text-slate-800 font-medium">
-                                {Number(item.unitCostKd).toFixed(3)}
-                              </td>
-                              <td className="py-2.5 px-3 text-right font-bold text-slate-900">
-                                {Number(item.lineTotalKd).toFixed(3)}
-                              </td>
-                              <td className="py-2.5 px-3 text-center">
+                            <div key={idx} className="p-4 space-y-3">
+                              <div className="flex items-center justify-between">
+                                <div className="font-bold text-emerald-700">{item.articleNumber}</div>
+                                <div className="font-bold text-slate-900 text-base">{Number(item.lineTotalKd).toFixed(3)} KD</div>
+                              </div>
+                              <div className="font-semibold text-slate-900">{item.nameEn}</div>
+                              
+                              <div className="flex items-center justify-between text-sm">
+                                <div className="text-slate-600">
+                                  <span className="font-medium">{item.dozen}</span> Dz <span className="font-medium">{item.pieces}</span> Pcs
+                                </div>
+                                <div className="font-extrabold text-slate-900">{item.totalPcs} Total Pcs</div>
+                              </div>
+
+                              <div className="flex items-center justify-between text-sm border-t border-slate-100 pt-2 mt-2">
+                                <div className="text-slate-600">Cost: <span className="font-medium text-slate-900">{Number(item.unitCostKd).toFixed(3)} KD</span></div>
                                 <button
                                   type="button"
                                   onClick={() => handleRemoveLine(idx)}
-                                  className="text-rose-600 hover:text-rose-800 p-1 hover:bg-rose-50 rounded-md font-bold text-xs"
-                                  title="Remove line"
+                                  className="text-rose-600 hover:text-rose-800 p-2 hover:bg-rose-50 rounded-md font-bold text-xs flex items-center gap-1 cursor-pointer min-h-touch"
                                 >
-                                  {t.purchases.removeItem}
+                                  <Trash2 size={14} /> Remove
                                 </button>
-                              </td>
-                            </tr>
+                              </div>
+                            </div>
                           ))}
-                        </tbody>
-                        <tfoot>
-                          <tr className="bg-slate-100 border-t-2 border-slate-300 text-slate-900 font-extrabold">
-                            <td colSpan={2} className="py-3 px-3 uppercase text-xs">
-                              Grand Totals
-                            </td>
-                            <td className="py-3 px-3 text-right">
-                              {wizardTotalDoz} Doz {wizardTotalPcsRem} Pcs
-                            </td>
-                            <td className="py-3 px-3 text-right text-base text-emerald-700">
-                              {wizardTotalPcs} Pcs
-                            </td>
-                            <td></td>
-                            <td className="py-3 px-3 text-right text-base text-slate-900">
-                              {wizardTotalAmountKd.toFixed(3)} {t.common.currency}
-                            </td>
-                            <td></td>
-                          </tr>
-                        </tfoot>
-                      </table>
+                          <div className="p-4 bg-slate-100 border-t-2 border-slate-300">
+                            <div className="flex justify-between items-center mb-1 text-sm font-bold text-slate-700">
+                              <span>Total Qty:</span>
+                              <span>{wizardTotalDoz} Dz {wizardTotalPcsRem} Pcs ({wizardTotalPcs} Pcs)</span>
+                            </div>
+                            <div className="flex justify-between items-center font-black text-slate-900 text-lg">
+                              <span>Grand Total:</span>
+                              <span className="text-emerald-700">{wizardTotalAmountKd.toFixed(3)} KD</span>
+                            </div>
+                          </div>
+                        </div>
+                      </>
                     )}
                   </div>
                 </div>
@@ -1172,42 +1302,65 @@ export const PurchasesPage: React.FC = () => {
 
                   {/* Lines Review Table */}
                   <div className="border border-slate-200 rounded-xl overflow-hidden">
-                    <table className="w-full text-left border-collapse text-sm">
-                      <thead>
-                        <tr className="bg-slate-100 border-b border-slate-200 text-slate-700 text-xs font-bold uppercase">
-                          <th className="py-2.5 px-3">Article</th>
-                          <th className="py-2.5 px-3">{lang === 'hi' ? 'Product Naam' : 'Product Name'}</th>
-                          <th className="py-2.5 px-3 text-right">Dozen + Pcs</th>
-                          <th className="py-2.5 px-3 text-right">Total Pcs</th>
-                          <th className="py-2.5 px-3 text-right">Cost (K.D.)</th>
-                          <th className="py-2.5 px-3 text-right">Line Total (K.D.)</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-200">
-                        {lines.map((item, idx) => (
-                          <tr key={idx} className="hover:bg-slate-50">
-                            <td className="py-2.5 px-3 font-bold text-emerald-700">
-                              {item.articleNumber}
-                            </td>
-                            <td className="py-2.5 px-3 font-semibold text-slate-900">
-                              {item.nameEn}
-                            </td>
-                            <td className="py-2.5 px-3 text-right text-slate-700">
-                              {item.dozen} Doz {item.pieces} Pcs
-                            </td>
-                            <td className="py-2.5 px-3 text-right font-extrabold text-slate-900">
-                              {item.totalPcs} Pcs
-                            </td>
-                            <td className="py-2.5 px-3 text-right text-slate-700">
-                              {Number(item.unitCostKd).toFixed(3)}
-                            </td>
-                            <td className="py-2.5 px-3 text-right font-bold text-slate-900">
-                              {Number(item.lineTotalKd).toFixed(3)}
-                            </td>
+                    {/* Desktop Table */}
+                    <div className="hidden md:block overflow-x-auto">
+                      <table className="w-full text-left border-collapse text-sm">
+                        <thead>
+                          <tr className="bg-slate-100 border-b border-slate-200 text-slate-700 text-xs font-bold uppercase">
+                            <th className="py-2.5 px-3">Article</th>
+                            <th className="py-2.5 px-3">{lang === 'hi' ? 'Product Naam' : 'Product Name'}</th>
+                            <th className="py-2.5 px-3 text-right">Dozen + Pcs</th>
+                            <th className="py-2.5 px-3 text-right">Total Pcs</th>
+                            <th className="py-2.5 px-3 text-right">Cost (K.D.)</th>
+                            <th className="py-2.5 px-3 text-right">Line Total (K.D.)</th>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                        </thead>
+                        <tbody className="divide-y divide-slate-200">
+                          {lines.map((item, idx) => (
+                            <tr key={idx} className="hover:bg-slate-50">
+                              <td className="py-2.5 px-3 font-bold text-emerald-700">
+                                {item.articleNumber}
+                              </td>
+                              <td className="py-2.5 px-3 font-semibold text-slate-900">
+                                {item.nameEn}
+                              </td>
+                              <td className="py-2.5 px-3 text-right text-slate-700">
+                                {item.dozen} Doz {item.pieces} Pcs
+                              </td>
+                              <td className="py-2.5 px-3 text-right font-extrabold text-slate-900">
+                                {item.totalPcs} Pcs
+                              </td>
+                              <td className="py-2.5 px-3 text-right text-slate-700">
+                                {Number(item.unitCostKd).toFixed(3)}
+                              </td>
+                              <td className="py-2.5 px-3 text-right font-bold text-slate-900">
+                                {Number(item.lineTotalKd).toFixed(3)}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {/* Mobile Card List */}
+                    <div className="md:hidden divide-y divide-slate-100">
+                      {lines.map((item, idx) => (
+                        <div key={idx} className="p-4 space-y-2">
+                          <div className="flex items-center justify-between">
+                            <div className="font-bold text-emerald-700">{item.articleNumber}</div>
+                            <div className="font-bold text-slate-900">{Number(item.lineTotalKd).toFixed(3)} KD</div>
+                          </div>
+                          <div className="font-medium text-slate-900 text-sm">{item.nameEn}</div>
+                          <div className="flex items-center justify-between text-sm text-slate-600">
+                            <div>{item.dozen} Dz {item.pieces} Pcs</div>
+                            <div className="font-extrabold text-slate-900">{item.totalPcs} Total Pcs</div>
+                          </div>
+                          <div className="text-sm text-slate-500">
+                            Cost: {Number(item.unitCostKd).toFixed(3)} KD
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   </div>
 
                   {/* Grand Total Highlight Box */}

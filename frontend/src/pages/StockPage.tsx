@@ -323,8 +323,8 @@ export const StockPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Products Table */}
-      <div className="bg-white rounded-xl shadow-xs border border-slate-200 overflow-hidden">
+      {/* Products Table (Desktop) */}
+      <div className="hidden md:block bg-white rounded-xl shadow-xs border border-slate-200 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse text-xs min-w-[850px]">
             <thead>
@@ -436,6 +436,98 @@ export const StockPage: React.FC = () => {
             </tbody>
           </table>
         </div>
+      </div>
+
+      {/* Mobile Products Card List */}
+      <div className="md:hidden space-y-4">
+        {loading ? (
+          <div className="text-center py-10 text-slate-500 font-medium">{t.common.loading}</div>
+        ) : products.length === 0 ? (
+          <div className="text-center py-10 text-slate-500 bg-white rounded-xl shadow-sm border border-slate-200">
+            <Package className="w-8 h-8 mx-auto mb-2 text-slate-300" />
+            {t.stock.noProducts}
+          </div>
+        ) : (
+          products.map((p) => (
+            <div key={p.id} className="bg-white rounded-xl p-4 shadow-sm border border-slate-200">
+              <div className="flex gap-4 items-start mb-3">
+                <div className="shrink-0">
+                  <ProductThumbnail
+                    productId={p.id}
+                    articleNumber={p.articleNumber}
+                    productName={p.nameEn}
+                    hasImage={p.hasImage}
+                    imageUpdatedAt={p.imageUpdatedAt}
+                    size="md"
+                  />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex justify-between items-start">
+                    <div className="font-mono font-bold text-sky-800">{p.articleNumber}</div>
+                    <div className="shrink-0 scale-90 origin-top-right">{statusBadge(p.status)}</div>
+                  </div>
+                  <div className="font-bold text-slate-900 truncate">{p.nameEn}</div>
+                  <div className="text-xs text-slate-500 mt-0.5">
+                    {p.category?.nameEn || '—'}
+                    {p.color && ` • ${p.color}`}
+                    {p.size && ` • ${p.size}`}
+                  </div>
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-3 mb-4 bg-slate-50 rounded-lg p-3 border border-slate-100">
+                <div>
+                  <div className="text-[10px] uppercase font-bold text-slate-400 mb-0.5">Stock</div>
+                  <div className="font-bold text-slate-900">
+                    {p.stockBreakdown.dozen} <span className="text-xs text-slate-500 font-normal">Doz</span> {p.stockBreakdown.pieces} <span className="text-xs text-slate-500 font-normal">Pcs</span>
+                  </div>
+                  <div className="text-xs font-mono text-slate-500">{p.stockBreakdown.totalPcs} total pcs</div>
+                </div>
+                <div className="text-right">
+                  <div className="text-[10px] uppercase font-bold text-slate-400 mb-0.5">Selling Price</div>
+                  <div className="font-bold text-slate-900 font-mono">
+                    {p.sellingPrice.toFixed(3)} <span className="text-[10px] text-slate-500 font-sans">K.D.</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-4 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setEditProduct(p)}
+                  className="flex flex-col items-center justify-center gap-1.5 p-2 rounded-xl bg-sky-50 text-sky-700 hover:bg-sky-100 transition-colors min-h-touch"
+                >
+                  <Pencil className="w-4 h-4" />
+                  <span className="text-[10px] font-bold uppercase">Edit</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAdjustProduct(p)}
+                  className="flex flex-col items-center justify-center gap-1.5 p-2 rounded-xl bg-amber-50 text-amber-700 hover:bg-amber-100 transition-colors min-h-touch"
+                >
+                  <ArrowUpDown className="w-4 h-4" />
+                  <span className="text-[10px] font-bold uppercase">Adjust</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setLedgerProduct(p)}
+                  className="flex flex-col items-center justify-center gap-1.5 p-2 rounded-xl bg-purple-50 text-purple-700 hover:bg-purple-100 transition-colors min-h-touch"
+                >
+                  <ScrollText className="w-4 h-4" />
+                  <span className="text-[10px] font-bold uppercase">Ledger</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleDeleteProduct(p)}
+                  className="flex flex-col items-center justify-center gap-1.5 p-2 rounded-xl bg-rose-50 text-rose-700 hover:bg-rose-100 transition-colors min-h-touch"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  <span className="text-[10px] font-bold uppercase">Delete</span>
+                </button>
+              </div>
+            </div>
+          ))
+        )}
       </div>
 
       {/* ── Add Product Modal ── */}
@@ -595,8 +687,8 @@ function AddProductModal({
 
   return (
     <ModalOverlay onClose={onClose}>
-      <div className="bg-white rounded-2xl w-full max-h-[92vh] overflow-y-auto p-6 shadow-2xl border border-slate-300">
-        <div className="flex items-center justify-between pb-3.5 mb-4 border-b border-slate-200">
+      <div className="bg-white w-full max-w-[calc(100vw-24px)] sm:max-w-xl max-h-[90dvh] rounded-2xl flex flex-col shadow-2xl border border-slate-300 animate-scale-in">
+        <div className="flex items-center justify-between p-4 sm:p-6 pb-4 border-b border-slate-200 shrink-0">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold">
               <Plus className="w-6 h-6" />
@@ -606,20 +698,21 @@ function AddProductModal({
               <p className="text-xs text-slate-500">{lang === 'hi' ? 'Naye maal ki jankari darj karein' : 'Enter product details and initial stock'}</p>
             </div>
           </div>
-          <button type="button" onClick={onClose} className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer">
+          <button type="button" onClick={onClose} className="p-2 min-h-touch min-w-touch rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer flex items-center justify-center">
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        {error && (
-          <div className="mb-4 p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-semibold flex items-center gap-2">
-            <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
-            <span>{error}</span>
-          </div>
-        )}
+        <div className="p-4 sm:p-6 overflow-y-auto custom-scrollbar flex-1">
+          {error && (
+            <div className="mb-4 p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-semibold flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+              <span>{error}</span>
+            </div>
+          )}
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid grid-cols-2 gap-3.5">
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
             <div className="col-span-2">
               <label className="block text-xs font-bold text-slate-700 mb-1">Product Image (Optional)</label>
               <input
@@ -787,7 +880,7 @@ function AddProductModal({
             />
           </FormField>
 
-          <div className="pt-4 border-t border-slate-200 flex justify-end gap-3">
+          <div className="pt-4 border-t border-slate-200 flex justify-end gap-3 shrink-0 mt-4">
             <button
               type="button"
               onClick={onClose}
@@ -804,6 +897,7 @@ function AddProductModal({
             </button>
           </div>
         </form>
+      </div>
       </div>
     </ModalOverlay>
   );
@@ -873,8 +967,8 @@ function EditProductModal({
 
   return (
     <ModalOverlay onClose={onClose}>
-      <div className="bg-white rounded-2xl w-full max-h-[92vh] overflow-y-auto p-6 shadow-2xl border border-slate-300">
-        <div className="flex items-center justify-between pb-3.5 mb-4 border-b border-slate-200">
+      <div className="bg-white w-full max-w-[calc(100vw-24px)] sm:max-w-2xl max-h-[90dvh] rounded-2xl flex flex-col shadow-2xl border border-slate-300 animate-scale-in">
+        <div className="flex items-center justify-between p-4 sm:p-6 pb-4 border-b border-slate-200 shrink-0">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-sky-100 text-sky-700 flex items-center justify-center font-bold">
               <Pencil className="w-5 h-5" />
@@ -1112,21 +1206,23 @@ function AdjustStockModal({
 
   return (
     <ModalOverlay onClose={onClose}>
-      <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-300">
-        <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-200">
+      <div className="bg-white w-full max-w-[calc(100vw-24px)] sm:max-w-md max-h-[90dvh] rounded-2xl flex flex-col shadow-2xl border border-slate-300 animate-scale-in">
+        <div className="flex items-center justify-between p-4 sm:p-6 pb-4 border-b border-slate-200 shrink-0">
           <div>
             <h2 className="text-base font-extrabold text-slate-900">{t.stock.adjustStock}</h2>
-            <p className="text-xs text-slate-500 font-medium">
+            <p className="text-xs text-slate-500 font-medium mt-1">
               <span className="font-mono font-bold text-emerald-700">{product.articleNumber}</span> • {product.nameEn}
             </p>
-            <p className="text-xs text-sky-700 font-bold mt-0.5">
+            <p className="text-xs text-sky-700 font-bold mt-1">
               Current: {product.stockBreakdown.displayDozPcs} ({product.stockBreakdown.totalPcs} Pcs)
             </p>
           </div>
-          <button type="button" onClick={onClose} className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer">
+          <button type="button" onClick={onClose} className="p-2 min-h-touch min-w-touch rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer flex items-center justify-center self-start">
             <X className="w-5 h-5" />
           </button>
         </div>
+
+        <div className="p-4 sm:p-6 overflow-y-auto custom-scrollbar flex-1">
 
         {error && (
           <div className="mb-3 p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-semibold flex items-center gap-2">
@@ -1212,7 +1308,7 @@ function AdjustStockModal({
             />
           </FormField>
 
-          <div className="pt-3 border-t border-slate-200 flex justify-end gap-2.5">
+          <div className="pt-3 border-t border-slate-200 flex justify-end gap-2.5 shrink-0 mt-4">
             <button
               type="button"
               onClick={onClose}
@@ -1231,6 +1327,7 @@ function AdjustStockModal({
             </button>
           </div>
         </form>
+      </div>
       </div>
     </ModalOverlay>
   );
@@ -1266,9 +1363,9 @@ function StockLedgerDrawer({
   }, [product.id]);
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end">
+    <div className="fixed inset-0 z-50 flex justify-end sm:justify-end justify-center sm:items-stretch items-end">
       <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-xs" onClick={onClose}></div>
-      <div className="relative w-full max-w-2xl bg-white shadow-2xl border-l border-slate-300 z-10 flex flex-col overflow-hidden">
+      <div className="relative w-full sm:max-w-2xl bg-white shadow-2xl sm:border-l sm:border-slate-300 sm:rounded-none rounded-t-2xl z-10 flex flex-col h-[90dvh] sm:h-full animate-slide-up sm:animate-none">
         {/* Header */}
         <div className="p-4 border-b border-slate-200 flex items-center justify-between flex-shrink-0">
           <div>
@@ -1547,7 +1644,7 @@ function ImportOpeningStockModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/60 backdrop-blur-xs animate-fade-in overflow-y-auto">
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl max-w-4xl w-full my-auto overflow-hidden flex flex-col max-h-[92vh]">
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl max-w-4xl w-full max-w-[calc(100vw-24px)] my-auto overflow-hidden flex flex-col max-h-[90dvh]">
         {/* Header */}
         <div className="bg-slate-900 text-white px-6 py-4 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-3">

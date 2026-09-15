@@ -28,6 +28,7 @@ import { CustomerLedgerModal } from '../components/customers/CustomerLedgerModal
 import { AdjustOpeningBalanceModal } from '../components/customers/AdjustOpeningBalanceModal';
 import { ReceivePaymentModal } from '../components/payments/ReceivePaymentModal';
 import { openWhatsAppWithText } from '../services/whatsappService';
+import { useActionMenu } from '../hooks/useActionMenu';
 
 /* ───────────────────── Types ───────────────────── */
 
@@ -130,8 +131,7 @@ export const CustomersPage: React.FC = () => {
   const [receivePaymentCustomerId, setReceivePaymentCustomerId] = useState<number | null>(null);
 
   // Active More Dropdown
-  const [openDropdownId, setOpenDropdownId] = useState<number | null>(null);
-  const [dropdownPos, setDropdownPos] = useState<{ top: number; right: number } | null>(null);
+  const { openDropdownId, dropdownPos, openMenu, closeMenu } = useActionMenu();
 
   // Form states (Only Name required; all others optional)
   const [name, setName] = useState('');
@@ -161,18 +161,7 @@ export const CustomersPage: React.FC = () => {
     fetchCustomers();
   }, [fetchCustomers]);
 
-  // Close dropdown on outside click
-  useEffect(() => {
-    const handleGlobalClick = (e: MouseEvent) => {
-      const target = e.target as HTMLElement;
-      if (!target.closest('.action-dropdown-container')) {
-        setOpenDropdownId(null);
-        setDropdownPos(null);
-      }
-    };
-    window.addEventListener('click', handleGlobalClick);
-    return () => window.removeEventListener('click', handleGlobalClick);
-  }, []);
+
 
   const showSuccessToast = (msg: string) => {
     setToast(msg);
@@ -204,12 +193,12 @@ export const CustomersPage: React.FC = () => {
     setIsActive(c.isActive);
     setFormError('');
     setShowAddModal(true);
-    setOpenDropdownId(null);
+    closeMenu();
   };
 
   /* ── Delete Customer ── */
   const handleDeleteCustomer = async (c: CustomerItem) => {
-    setOpenDropdownId(null);
+    closeMenu();
     if (
       !window.confirm(
         `Are you ABSOLUTELY sure you want to permanently delete customer "${c.name}"?\n\nThis will completely remove them from the system.`
@@ -246,7 +235,7 @@ export const CustomersPage: React.FC = () => {
   const openLedgerModal = (c: CustomerItem) => {
     setLedgerCustomerId(c.id);
     setLedgerCustomerName(c.name);
-    setOpenDropdownId(null);
+    closeMenu();
   };
 
   /* ── Save Customer (Only Name is mandatory) ── */
@@ -535,8 +524,8 @@ export const CustomersPage: React.FC = () => {
         </div>
       )}
 
-      {/* Customer Table */}
-      <div className="bg-white rounded-xl border border-slate-200/90 shadow-xs overflow-hidden sm:rounded-t-none sm:border-t-0">
+      {/* Customer Table (Desktop) */}
+      <div className="hidden md:block bg-white rounded-xl border border-slate-200/90 shadow-xs overflow-hidden sm:rounded-t-none sm:border-t-0">
         <div className="overflow-x-auto custom-scrollbar" ref={tableScrollRef} onScroll={handleTableScroll}>
           <table className="w-full text-left border-collapse" ref={tableInnerRef}>
             <thead>
@@ -638,20 +627,7 @@ export const CustomersPage: React.FC = () => {
                         <div className="relative action-dropdown-container inline-block">
                           <button
                             type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              if (openDropdownId === c.id) {
-                                setOpenDropdownId(null);
-                                setDropdownPos(null);
-                              } else {
-                                const rect = e.currentTarget.getBoundingClientRect();
-                                setDropdownPos({
-                                  top: rect.bottom,
-                                  right: window.innerWidth - rect.right,
-                                });
-                                setOpenDropdownId(c.id);
-                              }
-                            }}
+                            onClick={(e) => openMenu(c.id, e)}
                             className="inline-flex items-center justify-center w-8 h-8 text-slate-500 hover:text-slate-900 bg-slate-50 hover:bg-slate-200 rounded-lg transition-colors cursor-pointer"
                             aria-label="More Options"
                           >
@@ -660,15 +636,21 @@ export const CustomersPage: React.FC = () => {
 
                           {openDropdownId === c.id && dropdownPos && createPortal(
                             <div 
-                              className="fixed mt-1 w-48 bg-white rounded-xl shadow-xl border border-slate-200 py-1.5 z-[100] text-left animate-in fade-in zoom-in-95"
-                              style={{ top: dropdownPos.top, right: dropdownPos.right }}
+                              id={`action-menu-${c.id}`}
+                              className="fixed w-48 bg-white rounded-xl shadow-xl border border-slate-200 py-1.5 z-[100] text-left animate-in fade-in zoom-in-95"
+                              style={{ 
+                                top: dropdownPos.top, 
+                                bottom: dropdownPos.bottom, 
+                                right: dropdownPos.right, 
+                                left: dropdownPos.left 
+                              }}
                             >
                               {/* 1. View Invoices */}
                               <button
                                 type="button"
                                 onClick={() => {
                                   viewPendingInvoices(c);
-                                  setOpenDropdownId(null);
+                                  closeMenu();
                                 }}
                                 className="w-full px-3.5 py-2 text-xs font-semibold text-slate-800 hover:bg-slate-50 flex items-center gap-2 cursor-pointer"
                               >
@@ -681,7 +663,7 @@ export const CustomersPage: React.FC = () => {
                                 type="button"
                                 onClick={() => {
                                   navigate('/sales', { state: { selectedCustomerId: c.id } });
-                                  setOpenDropdownId(null);
+                                  closeMenu();
                                 }}
                                 className="w-full px-3.5 py-2 text-xs font-semibold text-slate-800 hover:bg-slate-50 flex items-center gap-2 cursor-pointer"
                               >
@@ -694,7 +676,7 @@ export const CustomersPage: React.FC = () => {
                                 type="button"
                                 onClick={() => {
                                   setReceivePaymentCustomerId(c.id);
-                                  setOpenDropdownId(null);
+                                  closeMenu();
                                 }}
                                 className="w-full px-3.5 py-2 text-xs font-semibold text-slate-800 hover:bg-slate-50 flex items-center gap-2 cursor-pointer"
                               >
@@ -708,7 +690,7 @@ export const CustomersPage: React.FC = () => {
                                   type="button"
                                   onClick={() => {
                                     sendWhatsAppReminder(c);
-                                    setOpenDropdownId(null);
+                                    closeMenu();
                                   }}
                                   className="w-full px-3.5 py-2 text-xs font-semibold text-emerald-700 hover:bg-emerald-50 flex items-center gap-2 cursor-pointer"
                                 >
@@ -742,7 +724,7 @@ export const CustomersPage: React.FC = () => {
                                 onClick={() => {
                                   setAdjustBalanceCustomerId(c.id);
                                   setAdjustBalanceCustomerName(c.name);
-                                  setOpenDropdownId(null);
+                                  closeMenu();
                                 }}
                                 className="w-full px-3.5 py-2 text-xs font-semibold text-slate-800 hover:bg-slate-50 flex items-center gap-2 cursor-pointer"
                               >
@@ -772,10 +754,104 @@ export const CustomersPage: React.FC = () => {
         </div>
       </div>
 
+      {/* Mobile Card List */}
+      <div className="md:hidden space-y-4 mt-4">
+        {loading ? (
+          <div className="text-center p-8 text-slate-400 font-medium">Loading customers...</div>
+        ) : filteredCustomers.length === 0 ? (
+          <div className="text-center p-8 text-slate-400 bg-white rounded-xl shadow-sm border border-slate-200">
+            <Users className="w-10 h-10 mx-auto text-slate-300 mb-2" />
+            No customers found.
+          </div>
+        ) : (
+          filteredCustomers.map(c => {
+             const outstanding = Number(c.totalOutstandingKd ?? c.totalOutstanding ?? 0);
+             const hasOutstanding = outstanding > 0;
+             const hasPhone = Boolean(c.phone && c.phone.trim().length > 0);
+             return (
+               <div key={c.id} className="bg-white rounded-xl p-4 shadow-sm border border-slate-200">
+                 <div className="flex justify-between items-start mb-3">
+                   <div className="min-w-0 pr-3">
+                     <div className="font-bold text-slate-900 truncate">{c.name}</div>
+                     {c.nameAr && <div className="text-sm text-slate-600 font-semibold dir-rtl truncate mt-0.5">{c.nameAr}</div>}
+                   </div>
+                   <div className="shrink-0">
+                     {c.isActive ? (
+                       <span className="px-2 py-1 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">Active</span>
+                     ) : (
+                       <span className="px-2 py-1 rounded text-[10px] font-bold bg-slate-100 text-slate-500 border border-slate-200">Inactive</span>
+                     )}
+                   </div>
+                 </div>
+                 
+                 <div className="grid grid-cols-2 gap-3 text-xs mb-3">
+                   <div>
+                     <div className="text-slate-500 mb-0.5">Phone</div>
+                     <div className="font-mono font-medium">{c.phone || '—'}</div>
+                   </div>
+                   <div>
+                     <div className="text-slate-500 mb-0.5">Address</div>
+                     <div className="truncate font-medium">{c.address || '—'}</div>
+                   </div>
+                 </div>
+                 
+                 <div className="flex justify-between items-end pt-3 border-t border-slate-100 mb-4">
+                   <div>
+                     <div className="text-xs text-slate-500 mb-1">Outstanding</div>
+                     <div className={`font-mono font-black text-sm ${hasOutstanding ? 'text-rose-700' : 'text-slate-600'}`}>
+                       KD {outstanding.toFixed(3)}
+                     </div>
+                   </div>
+                   <div className="text-right">
+                     <div className="text-xs text-slate-500 mb-1">Total Sales</div>
+                     <div className="font-mono font-bold text-slate-900">
+                       KD {Number(c.totalSalesKd ?? c.totalSales ?? 0).toFixed(3)}
+                     </div>
+                   </div>
+                 </div>
+                 
+                 {/* Mobile Actions Grid */}
+                 <div className="grid grid-cols-2 gap-2">
+                   <button onClick={() => viewPendingInvoices(c)} className="flex flex-col items-center justify-center gap-1 p-2.5 min-h-touch bg-slate-50 hover:bg-slate-100 rounded-xl text-xs font-semibold text-slate-700 transition-colors">
+                     <Eye className="w-4 h-4 text-slate-500" /> Invoices
+                   </button>
+                   <button onClick={() => navigate('/sales', { state: { selectedCustomerId: c.id } })} className="flex flex-col items-center justify-center gap-1 p-2.5 min-h-touch bg-sky-50 hover:bg-sky-100 rounded-xl text-xs font-semibold text-sky-700 transition-colors">
+                     <ShoppingBag className="w-4 h-4 text-sky-600" /> Sale
+                   </button>
+                   <button onClick={() => setReceivePaymentCustomerId(c.id)} className="flex flex-col items-center justify-center gap-1 p-2.5 min-h-touch bg-emerald-50 hover:bg-emerald-100 rounded-xl text-xs font-semibold text-emerald-700 transition-colors">
+                     <CreditCard className="w-4 h-4 text-emerald-600" /> Receive
+                   </button>
+                   <button onClick={() => openLedgerModal(c)} className="flex flex-col items-center justify-center gap-1 p-2.5 min-h-touch bg-indigo-50 hover:bg-indigo-100 rounded-xl text-xs font-semibold text-indigo-700 transition-colors">
+                     <BookOpen className="w-4 h-4 text-indigo-600" /> Ledger
+                   </button>
+                   <button onClick={() => openEditModal(c)} className="flex flex-col items-center justify-center gap-1 p-2.5 min-h-touch bg-amber-50 hover:bg-amber-100 rounded-xl text-xs font-semibold text-amber-700 transition-colors">
+                     <Pencil className="w-4 h-4 text-amber-600" /> Edit
+                   </button>
+                   {hasOutstanding && hasPhone && (
+                     <button onClick={() => sendWhatsAppReminder(c)} className="flex flex-col items-center justify-center gap-1 p-2.5 min-h-touch bg-emerald-50 hover:bg-emerald-100 rounded-xl text-xs font-semibold text-emerald-700 transition-colors">
+                       <MessageCircle className="w-4 h-4 text-emerald-600" /> Reminder
+                     </button>
+                   )}
+                   <button onClick={() => {
+                       setAdjustBalanceCustomerId(c.id);
+                       setAdjustBalanceCustomerName(c.name);
+                     }} className="flex flex-col items-center justify-center gap-1 p-2.5 min-h-touch bg-slate-50 hover:bg-slate-100 rounded-xl text-xs font-semibold text-slate-700 transition-colors col-span-1">
+                     <DollarSign className="w-4 h-4 text-emerald-600" /> Adjust Bal.
+                   </button>
+                   <button onClick={() => handleDeleteCustomer(c)} className="flex flex-col items-center justify-center gap-1 p-2.5 min-h-touch bg-rose-50 hover:bg-rose-100 rounded-xl text-xs font-semibold text-rose-700 transition-colors col-span-1">
+                     <Trash2 className="w-4 h-4 text-rose-600" /> Delete
+                   </button>
+                 </div>
+               </div>
+             )
+          })
+        )}
+      </div>
+
       {/* Add / Edit Customer Modal */}
       {showAddModal && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95">
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto animate-fade-in">
+          <div className="bg-white w-full max-w-[calc(100vw-24px)] sm:max-w-md max-h-[90dvh] rounded-2xl shadow-2xl border border-slate-200 flex flex-col animate-scale-in">
             <div className="px-6 py-4 bg-slate-900 text-white flex items-center justify-between">
               <div className="flex items-center gap-2.5">
                 <div className="w-8 h-8 rounded-lg bg-sky-500/20 text-sky-400 flex items-center justify-center font-bold">
@@ -787,13 +863,13 @@ export const CustomersPage: React.FC = () => {
               </div>
               <button
                 onClick={resetForm}
-                className="text-slate-400 hover:text-white p-1 rounded-lg transition-colors cursor-pointer"
+                className="text-slate-400 hover:text-white p-2 min-h-touch min-w-touch rounded-lg transition-colors cursor-pointer flex items-center justify-center"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleSaveCustomer} className="p-6 space-y-4">
+            <form onSubmit={handleSaveCustomer} className="p-6 space-y-4 overflow-y-auto custom-scrollbar">
               {formError && (
                 <div className="p-3 rounded-lg bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold flex items-center gap-2">
                   <AlertCircle className="w-4 h-4 shrink-0" />
@@ -940,8 +1016,8 @@ export const CustomersPage: React.FC = () => {
 
       {/* Customer Invoices & Overview Modal */}
       {selectedCustomer && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white w-full max-w-2xl rounded-2xl shadow-2xl border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95 flex flex-col max-h-[85vh]">
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto animate-fade-in">
+          <div className="bg-white w-full max-w-[calc(100vw-24px)] sm:max-w-2xl max-h-[90dvh] rounded-2xl shadow-2xl border border-slate-200 flex flex-col animate-scale-in">
             <div className="px-6 py-4 bg-slate-900 text-white flex items-center justify-between shrink-0">
               <div>
                 <h3 className="font-bold text-base text-white">{selectedCustomer.name}</h3>
@@ -952,13 +1028,13 @@ export const CustomersPage: React.FC = () => {
               </div>
               <button
                 onClick={() => setSelectedCustomer(null)}
-                className="text-slate-400 hover:text-white p-1 rounded-lg transition-colors cursor-pointer"
+                className="text-slate-400 hover:text-white p-2 min-h-touch min-w-touch rounded-lg transition-colors cursor-pointer flex items-center justify-center shrink-0"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="p-6 overflow-y-auto flex-1 space-y-4">
+            <div className="p-6 overflow-y-auto custom-scrollbar flex-1 space-y-4">
               <div className="flex items-center justify-between">
                 <h4 className="font-bold text-slate-900 text-sm">Pending & Unpaid Invoices</h4>
                 <button

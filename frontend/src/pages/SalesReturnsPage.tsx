@@ -73,7 +73,8 @@ export const SalesReturnsPage: React.FC = () => {
 
       {/* Table */}
       <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-        <div className="overflow-x-auto">
+        {/* Desktop Table */}
+        <div className="hidden md:block overflow-x-auto">
           <table className="w-full text-left border-collapse min-w-[800px]">
             <thead>
               <tr className="bg-slate-50 border-b border-slate-100">
@@ -149,6 +150,62 @@ export const SalesReturnsPage: React.FC = () => {
               )}
             </tbody>
           </table>
+        </div>
+
+        {/* Mobile Card List */}
+        <div className="md:hidden divide-y divide-slate-100">
+          {loading ? (
+            <div className="py-8 text-center text-slate-500">
+              Loading...
+            </div>
+          ) : filteredReturns.length === 0 ? (
+            <div className="py-8 text-center text-slate-500">
+              No returns found.
+            </div>
+          ) : (
+            filteredReturns.map((r) => (
+              <div key={r.id} className="p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="font-medium text-slate-900">{r.returnNumber}</div>
+                  <div className="text-right font-medium text-slate-900">
+                    {Number(r.totalReturnAmountKd).toFixed(3)} K.D.
+                  </div>
+                </div>
+                
+                <div className="flex items-center justify-between text-sm">
+                  <div className="text-slate-500">{new Date(r.returnDate).toLocaleDateString()}</div>
+                  <span
+                    className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium ${
+                      r.status === 'POSTED'
+                        ? 'bg-green-100 text-green-800'
+                        : 'bg-red-100 text-red-800'
+                    }`}
+                  >
+                    {r.status}
+                  </span>
+                </div>
+
+                <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-100 space-y-1 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">Customer:</span>
+                    <span className="font-medium text-slate-900">{r.customer?.name}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">Invoice:</span>
+                    <span className="text-blue-600 font-medium">{r.invoice?.invoiceNumber}</span>
+                  </div>
+                  <div className="flex justify-between font-medium pt-1 border-t border-slate-200 mt-1">
+                    <span className="text-slate-500">Refund Due:</span>
+                    {r.status === 'POSTED' && Number(r.refundRequiredKd) > 0 ? (
+                      <span className="text-amber-600">{Number(r.refundRequiredKd).toFixed(3)} K.D.</span>
+                    ) : (
+                      <span className="text-slate-400">0.000 K.D.</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))
+          )}
         </div>
       </div>
     </div>

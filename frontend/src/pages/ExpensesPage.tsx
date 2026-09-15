@@ -20,6 +20,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import { TransactionAuditModal } from '../components/common/TransactionAuditModal';
+import { ModalOverlay } from '../components/common/ModalOverlay';
 
 /* ───────────────────── Types ───────────────────── */
 
@@ -538,7 +539,8 @@ export const ExpensesPage: React.FC = () => {
 
       {/* Expense Table */}
       <div className="bg-white rounded-xl border border-slate-200/90 shadow-xs overflow-hidden">
-        <div className="overflow-x-auto">
+        {/* Desktop Table */}
+        <div className="hidden md:block overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-slate-50/80 border-b border-slate-200 text-xs font-bold text-slate-600 uppercase tracking-wider">
@@ -723,12 +725,124 @@ export const ExpensesPage: React.FC = () => {
             </tbody>
           </table>
         </div>
+
+        {/* Mobile Card List */}
+        <div className="md:hidden divide-y divide-slate-100">
+          {loading ? (
+            <div className="p-12 text-center text-slate-400 font-medium">
+              Loading expenses...
+            </div>
+          ) : expenses.length === 0 ? (
+            <div className="p-12 text-center text-slate-400 font-medium">
+              <Receipt className="w-10 h-10 mx-auto text-slate-300 mb-2" />
+              No expenses found.
+            </div>
+          ) : (
+            expenses.map((expense) => {
+              const isCancelled = expense.status === 'CANCELLED';
+              return (
+                <div key={expense.id} className={`p-4 space-y-3 ${isCancelled ? 'bg-slate-50' : 'bg-white'}`}>
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold font-mono text-sm text-slate-900">
+                      {expense.expenseNumber}
+                    </span>
+                    <span className={`font-black text-base ${isCancelled ? 'line-through text-slate-400' : 'text-slate-900'}`}>
+                      KD {Number(expense.amountKd).toFixed(3)}
+                    </span>
+                  </div>
+
+                  <div>
+                    <div className={`font-semibold ${isCancelled ? 'line-through text-slate-400' : 'text-slate-900'}`}>
+                      {expense.description}
+                    </div>
+                    {expense.notes && (
+                      <div className="text-xs text-slate-400 mt-0.5">
+                        {expense.notes}
+                      </div>
+                    )}
+                    <div className="text-xs text-slate-500 mt-1 flex items-center gap-2">
+                      <span>{expense.expenseDate}</span>
+                      <span>• {expense.paidTo || '—'}</span>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2 text-xs">
+                    <span className={`px-2 py-0.5 rounded font-semibold ${
+                      isCancelled ? 'bg-slate-200 text-slate-500' : 'bg-slate-100 text-slate-800 border border-slate-200'
+                    }`}>
+                      {expense.category}
+                    </span>
+                    <span className="px-2 py-0.5 rounded bg-slate-100 font-medium text-slate-700">
+                      {expense.paymentMethod}
+                    </span>
+                    {isCancelled && (
+                      <span className="px-2 py-0.5 rounded font-bold bg-rose-50 text-rose-700 border border-rose-200">
+                        CANCELLED
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
+                    <button
+                      type="button"
+                      onClick={() => setViewingExpense(expense)}
+                      className="px-2.5 py-1.5 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-md transition-colors cursor-pointer inline-flex items-center gap-1 min-h-touch"
+                    >
+                      <Eye className="w-3.5 h-3.5" /> View
+                    </button>
+
+                    <div className="flex items-center gap-1.5">
+                      {!isCancelled && (
+                        <button
+                          type="button"
+                          onClick={() => openEditModal(expense)}
+                          className="px-2.5 py-1.5 text-xs font-semibold text-sky-700 bg-sky-50 hover:bg-sky-100 rounded-md transition-colors cursor-pointer min-h-touch min-w-touch flex items-center justify-center"
+                        >
+                          <Edit2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                      
+                      {!isCancelled ? (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setCancellingExpense(expense);
+                              setCancelReason('Duplicate or erroneous entry');
+                            }}
+                            className="px-2.5 py-1.5 text-xs font-semibold text-rose-700 bg-rose-50 hover:bg-rose-100 rounded-md transition-colors cursor-pointer min-h-touch min-w-touch flex items-center justify-center"
+                          >
+                            <Ban className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteExpense(expense)}
+                            className="px-2.5 py-1.5 text-xs font-semibold text-rose-800 bg-rose-100 hover:bg-rose-200 rounded-md transition-colors cursor-pointer min-h-touch min-w-touch flex items-center justify-center"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => setAuditModalRef(expense.expenseNumber)}
+                          className="px-2.5 py-1.5 text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-md transition-colors cursor-pointer min-h-touch min-w-touch flex items-center justify-center"
+                        >
+                          <History className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
       </div>
 
       {/* Add / Edit Expense Modal */}
-      {showModal && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95">
+      <ModalOverlay isOpen={showModal} onClose={() => setShowModal(false)}>
+        <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[90dvh]">
             {/* Modal Header */}
             <div className="px-6 py-4 bg-slate-900 text-white flex items-center justify-between">
               <div className="flex items-center gap-2.5">
@@ -748,7 +862,7 @@ export const ExpensesPage: React.FC = () => {
             </div>
 
             {/* Modal Form */}
-            <form onSubmit={handleSave} className="p-6 space-y-4">
+            <form onSubmit={handleSave} className="p-6 space-y-4 overflow-y-auto min-h-0">
               {formError && (
                 <div className="p-3 rounded-lg bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold flex items-center gap-2">
                   <AlertCircle className="w-4 h-4 shrink-0" />
@@ -937,14 +1051,13 @@ export const ExpensesPage: React.FC = () => {
               </div>
             </form>
           </div>
-        </div>
-      )}
+      </ModalOverlay>
 
       {/* Cancel Expense Confirmation Modal (Replaces Delete) */}
       {cancellingExpense && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95">
-            <div className="p-6">
+        <ModalOverlay isOpen={true} onClose={() => setCancellingExpense(null)}>
+          <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[90dvh]">
+          <div className="p-6 overflow-y-auto min-h-0">
               <div className="w-12 h-12 rounded-full bg-rose-50 text-rose-600 flex items-center justify-center mx-auto mb-4">
                 <Ban className="w-6 h-6" />
               </div>
@@ -995,13 +1108,13 @@ export const ExpensesPage: React.FC = () => {
               </div>
             </div>
           </div>
-        </div>
+        </ModalOverlay>
       )}
 
       {/* Expense Detail View Modal */}
       {viewingExpense && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95">
+        <ModalOverlay isOpen={true} onClose={() => setViewingExpense(null)}>
+          <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[90dvh]">
             <div className="px-6 py-4 bg-slate-900 text-white flex items-center justify-between">
               <div>
                 <h3 className="font-bold text-base text-white">Expense Details</h3>
@@ -1015,7 +1128,7 @@ export const ExpensesPage: React.FC = () => {
               </button>
             </div>
 
-            <div className="p-6 space-y-4 text-sm">
+            <div className="p-6 space-y-4 text-sm overflow-y-auto min-h-0">
               <div className="grid grid-cols-2 gap-4 pb-4 border-b border-slate-100">
                 <div>
                   <div className="text-xs text-slate-400 font-medium">Amount</div>
@@ -1117,7 +1230,7 @@ export const ExpensesPage: React.FC = () => {
               </div>
             </div>
           </div>
-        </div>
+        </ModalOverlay>
       )}
 
       {/* Transaction Audit Modal */}

@@ -24,6 +24,7 @@ import { openWhatsAppWithText } from '../services/whatsappService';
 
 import { normalizeSearchText } from '../utils/searchUtils';
 import { CustomerCombobox } from '../components/common/CustomerCombobox';
+import { ModalOverlay } from '../components/common/ModalOverlay';
 
 /* ───────────────────── Types ───────────────────── */
 
@@ -659,10 +660,10 @@ export const PaymentsPage: React.FC = () => {
 
       {/* ───────────────────── RECEIVE PAYMENT MODAL ───────────────────── */}
       {showAddModal && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-fade-in">
-          <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden border border-slate-200 animate-scale-in">
+        <ModalOverlay onClose={resetForm}>
+          <div className="bg-white w-full max-w-[calc(100vw-24px)] sm:max-w-lg max-h-[90dvh] rounded-2xl flex flex-col shadow-2xl border border-slate-300 animate-scale-in">
             {/* Modal Header */}
-            <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
+            <div className="p-4 sm:p-6 pb-4 border-b border-slate-200 flex items-center justify-between bg-slate-50 shrink-0 rounded-t-2xl">
               <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
                 <CreditCard size={18} className="text-emerald-600" />
                 <span>{t.payments.receivePayment}</span>
@@ -670,14 +671,14 @@ export const PaymentsPage: React.FC = () => {
               <button
                 type="button"
                 onClick={resetForm}
-                className="text-slate-400 hover:text-slate-700 p-1 rounded-lg transition-colors cursor-pointer"
+                className="p-2 min-h-touch min-w-touch rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200 transition-colors cursor-pointer flex items-center justify-center"
               >
                 <X size={18} />
               </button>
             </div>
 
             {/* Modal Form */}
-            <form onSubmit={handleSavePayment} className="p-6 space-y-4">
+            <form onSubmit={handleSavePayment} className="p-4 sm:p-6 space-y-4 overflow-y-auto custom-scrollbar flex-1">
               {formError && (
                 <div className="p-3 bg-red-50 border border-red-200 text-red-700 rounded-xl text-xs flex items-center gap-2 font-medium">
                   <AlertCircle size={16} className="shrink-0" />
@@ -825,7 +826,7 @@ export const PaymentsPage: React.FC = () => {
               </div>
 
               {/* Modal Buttons */}
-              <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-200">
+              <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-200 shrink-0 mt-4">
                 <button
                   type="button"
                   onClick={resetForm}
@@ -843,15 +844,15 @@ export const PaymentsPage: React.FC = () => {
               </div>
             </form>
           </div>
-        </div>
+        </ModalOverlay>
       )}
 
       {/* ───────────────────── VIEW RECEIPT MODAL ───────────────────── */}
       {viewReceiptModal && (
-        <div className="fixed inset-0 bg-slate-900/65 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-fade-in">
-          <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden border border-slate-200 animate-scale-in">
+        <ModalOverlay onClose={() => setViewReceiptModal(null)}>
+          <div className="bg-white w-full max-w-[calc(100vw-24px)] sm:max-w-lg max-h-[90dvh] rounded-2xl flex flex-col shadow-2xl border border-slate-300 animate-scale-in">
             {/* Header */}
-            <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
+            <div className="p-4 sm:p-6 pb-4 border-b border-slate-200 flex items-center justify-between bg-slate-50 shrink-0 rounded-t-2xl">
               <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
                 <FileText size={18} className="text-slate-700" />
                 <span>Receipt Voucher {viewReceiptModal.receiptNumber}</span>
@@ -860,27 +861,27 @@ export const PaymentsPage: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => window.print()}
-                  className="px-3 py-1.5 bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 rounded-lg text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer shadow-xs"
+                  className="p-2 sm:px-3 sm:py-1.5 bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 rounded-lg text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer shadow-xs min-h-touch min-w-touch justify-center"
                 >
-                  <Printer size={13} />
-                  <span>Print</span>
+                  <Printer size={16} className="sm:w-[13px] sm:h-[13px]" />
+                  <span className="hidden sm:inline">Print</span>
                 </button>
 
                 {viewReceiptModal.customer?.phone && (
                   <button
                     type="button"
                     onClick={() => sendWhatsAppConfirmation(viewReceiptModal)}
-                    className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer shadow-xs"
+                    className="p-2 sm:px-3 sm:py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer shadow-xs min-h-touch min-w-touch justify-center"
                   >
-                    <MessageCircle size={13} />
-                    <span>WhatsApp</span>
+                    <MessageCircle size={16} className="sm:w-[13px] sm:h-[13px]" />
+                    <span className="hidden sm:inline">WhatsApp</span>
                   </button>
                 )}
 
                 <button
                   type="button"
                   onClick={() => setViewReceiptModal(null)}
-                  className="text-slate-400 hover:text-slate-700 p-1 rounded-lg transition-colors cursor-pointer"
+                  className="p-2 min-h-touch min-w-touch text-slate-400 hover:text-slate-700 rounded-lg transition-colors cursor-pointer flex items-center justify-center hover:bg-slate-200"
                 >
                   <X size={18} />
                 </button>
@@ -888,7 +889,7 @@ export const PaymentsPage: React.FC = () => {
             </div>
 
             {/* Printable Content */}
-            <div className="p-6 space-y-4">
+            <div className="p-4 sm:p-6 space-y-4 overflow-y-auto custom-scrollbar flex-1">
               <div className="text-center pb-4 border-b border-slate-200">
                 <h3 className="text-lg font-black text-slate-900 tracking-tight">
                   RASHIDI STAR
@@ -950,7 +951,7 @@ export const PaymentsPage: React.FC = () => {
             </div>
 
             {/* Footer */}
-            <div className="px-6 py-3 border-t border-slate-200 flex justify-end bg-slate-50">
+            <div className="px-4 sm:px-6 py-3 border-t border-slate-200 flex justify-end bg-slate-50 shrink-0">
               <button
                 type="button"
                 onClick={() => setViewReceiptModal(null)}
@@ -960,7 +961,7 @@ export const PaymentsPage: React.FC = () => {
               </button>
             </div>
           </div>
-        </div>
+        </ModalOverlay>
       )}
 
       {/* ───────────────────── TRANSACTION AUDIT MODAL ───────────────────── */}

@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { ChevronDown, Search as SearchIcon, Check } from 'lucide-react';
 import { normalizeSearchText } from '../../utils/searchUtils';
+import { useViewportDropdown } from '../../hooks/useViewportDropdown';
 
 interface SupplierOption {
   id: number;
@@ -25,28 +27,38 @@ export const SupplierCombobox: React.FC<SupplierComboboxProps> = ({
   disabled,
   lang = 'en',
 }) => {
-  const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState('');
   const [highlightedIndex, setHighlightedIndex] = useState(0);
 
   const containerRef = useRef<HTMLDivElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  const { isOpen, setIsOpen, style } = useViewportDropdown(containerRef);
 
   useEffect(() => {
     const handleOutsideClick = (e: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+      const target = e.target as Node;
+      if (
+        containerRef.current && 
+        !containerRef.current.contains(target) &&
+        dropdownRef.current &&
+        !dropdownRef.current.contains(target)
+      ) {
         setIsOpen(false);
       }
     };
     if (isOpen) {
       document.addEventListener('mousedown', handleOutsideClick);
-      inputRef.current?.focus();
+      setTimeout(() => {
+        inputRef.current?.focus();
+      }, 50);
       setHighlightedIndex(0);
     } else {
       setSearch('');
     }
     return () => document.removeEventListener('mousedown', handleOutsideClick);
-  }, [isOpen]);
+  }, [isOpen, setIsOpen]);
 
   const filtered = useMemo(() => {
     // Add "no supplier" option at the top
@@ -105,18 +117,18 @@ export const SupplierCombobox: React.FC<SupplierComboboxProps> = ({
   };
 
   return (
-    <div className="relative" ref={containerRef}>
-      {!isOpen ? (
+    <>
+      <div className="relative" ref={containerRef}>
         <div 
           tabIndex={disabled ? -1 : 0}
           onKeyDown={handleKeyDown}
-          onClick={() => { if (!disabled) setIsOpen(true); }}
-          className={`w-full px-4 py-3 border border-slate-300 rounded-xl text-slate-900 font-bold text-base flex items-center justify-between transition-all ${disabled ? 'bg-slate-50 text-slate-500 cursor-not-allowed' : 'bg-white hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer'}`}
+          onClick={() => { if (!disabled) setIsOpen(!isOpen); }}
+          className={`w-full px-4 py-3 border rounded-xl text-sm font-bold flex items-center justify-between transition-all min-h-touch ${disabled ? 'bg-slate-50 border-slate-200 text-slate-500 cursor-not-allowed' : isOpen ? 'bg-white border-emerald-500 ring-2 ring-emerald-500/20 text-slate-900 cursor-pointer' : 'bg-white border-slate-300 text-slate-900 hover:border-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer'}`}
         >
           <div className="truncate flex-1">
             {selectedSupplier ? (
               <div className="flex flex-col text-left">
-                <span>{selectedSupplier.name} ({selectedSupplier.country})</span>
+                <span>{selectedSupplier.name} {selectedSupplier.country && `(${selectedSupplier.country})`}</span>
               </div>
             ) : (
               <span className="text-slate-600 font-medium">
@@ -124,11 +136,17 @@ export const SupplierCombobox: React.FC<SupplierComboboxProps> = ({
               </span>
             )}
           </div>
-          <ChevronDown size={18} className="text-slate-400 shrink-0 ml-2" />
+          <ChevronDown size={18} className={`text-slate-400 shrink-0 ml-2 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
         </div>
-      ) : (
-        <div className="w-full bg-white border border-slate-300 rounded-xl shadow-lg z-50 overflow-hidden absolute top-0 left-0">
-          <div className="p-2 border-b border-slate-100 flex items-center bg-slate-50">
+      </div>
+
+      {isOpen && createPortal(
+        <div 
+          ref={dropdownRef}
+          className="bg-white border border-slate-300 rounded-xl shadow-2xl flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-100"
+          style={{ ...style, maxWidth: 'calc(100vw - 32px)' }}
+        >
+          <div className="p-2 border-b border-slate-100 flex items-center bg-slate-50 shrink-0">
             <SearchIcon size={18} className="text-slate-400 ml-2 mr-2 shrink-0" />
             <input
               ref={inputRef}
@@ -139,11 +157,11 @@ export const SupplierCombobox: React.FC<SupplierComboboxProps> = ({
                 setHighlightedIndex(0);
               }}
               onKeyDown={handleKeyDown}
-              placeholder={lang === 'hi' ? "Supplier search karein..." : "Search supplier by name, country, or phone..."}
-              className="w-full bg-transparent border-none text-base focus:outline-none focus:ring-0 py-1"
+              placeholder={lang === 'hi' ? "Supplier search karein..." : "Search supplier..."}
+              className="w-full bg-transparent border-none text-sm focus:outline-none focus:ring-0 py-1"
             />
           </div>
-          <div className="max-h-60 overflow-y-auto py-1">
+          <div className="overflow-y-auto custom-scrollbar touch-scroll flex-1 py-1">
             {filtered.length === 0 ? (
               <div className="px-4 py-3 text-sm text-slate-500 text-center">No supplier found</div>
             ) : (
@@ -155,23 +173,24 @@ export const SupplierCombobox: React.FC<SupplierComboboxProps> = ({
                     setIsOpen(false);
                   }}
                   onMouseEnter={() => setHighlightedIndex(idx)}
-                  className={`px-4 py-2.5 cursor-pointer flex justify-between items-center ${highlightedIndex === idx ? 'bg-emerald-50' : 'hover:bg-slate-50'} ${(s.id === '' ? value === '' : value === s.id) ? 'bg-emerald-50/50' : ''}`}
+                  className={`px-4 py-2 cursor-pointer flex justify-between items-center min-h-touch ${highlightedIndex === idx ? 'bg-emerald-50' : 'hover:bg-slate-50'} ${(s.id === '' ? value === '' : value === s.id) ? 'bg-emerald-50/50' : ''}`}
                 >
-                  <div>
-                    <div className={`font-bold text-sm ${s.id === '' ? 'text-slate-600 italic' : 'text-slate-900'}`}>
+                  <div className="min-w-0 pr-4">
+                    <div className={`font-bold text-sm truncate ${s.id === '' ? 'text-slate-600 italic' : 'text-slate-900'}`}>
                       {s.name} {s.country && <span className="font-normal text-slate-500 ml-1">({s.country})</span>}
                     </div>
                     {s.phone && <div className="text-xs text-slate-500 mt-0.5">{s.phone}</div>}
                   </div>
-                  <div className="text-right shrink-0 ml-4 flex items-center justify-end">
-                    {(s.id === '' ? value === '' : value === s.id) && <Check size={18} className="text-emerald-600" />}
+                  <div className="text-right shrink-0 flex items-center justify-end">
+                    {(s.id === '' ? value === '' : value === s.id) && <Check size={18} className="text-emerald-600 shrink-0" />}
                   </div>
                 </div>
               ))
             )}
           </div>
-        </div>
+        </div>,
+        document.body
       )}
-    </div>
+    </>
   );
 };

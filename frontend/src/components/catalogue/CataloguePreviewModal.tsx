@@ -16,6 +16,7 @@ export const CataloguePreviewModal: React.FC<CataloguePreviewModalProps> = ({ pr
   const [currentPage, setCurrentPage] = useState(1);
   const [isExporting, setIsExporting] = useState(false);
   const [statusMessage, setStatusMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
+  const [scale, setScale] = useState(0.82);
 
   // Focus trap / escape key handling
   useEffect(() => {
@@ -25,6 +26,24 @@ export const CataloguePreviewModal: React.FC<CataloguePreviewModalProps> = ({ pr
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [onClose, isExporting]);
+
+  // Handle responsive scaling
+  useEffect(() => {
+    const calculateScale = () => {
+      const availableWidth = window.innerWidth - 48; // 24px padding on each side
+      const targetWidth = 794; // A4 width
+      
+      if (availableWidth < targetWidth * 0.82) {
+        setScale(availableWidth / targetWidth);
+      } else {
+        setScale(0.82); // default desktop scale
+      }
+    };
+    
+    calculateScale();
+    window.addEventListener('resize', calculateScale);
+    return () => window.removeEventListener('resize', calculateScale);
+  }, []);
 
   /**
    * Helper: Wait for all web fonts and images inside an element to be completely loaded.
@@ -132,19 +151,19 @@ export const CataloguePreviewModal: React.FC<CataloguePreviewModalProps> = ({ pr
   return (
     <div className="fixed inset-0 z-[100] bg-slate-950/90 backdrop-blur-sm flex flex-col">
       {/* Top Header Bar */}
-      <div className="h-16 bg-slate-900 border-b border-slate-800 px-4 sm:px-6 flex items-center justify-between shrink-0">
-        <div className="flex items-center gap-4 text-white">
+      <div className="h-auto md:h-16 bg-slate-900 border-b border-slate-800 p-4 sm:px-6 flex flex-col md:flex-row md:items-center justify-between gap-4 shrink-0">
+        <div className="flex items-start sm:items-center gap-3 md:gap-4 text-white">
           <button
             onClick={onClose}
             disabled={isExporting}
-            className="p-2 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-white transition-colors disabled:opacity-50"
+            className="p-2 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-white transition-colors disabled:opacity-50 shrink-0"
             title="Close Preview"
           >
             <X className="w-5 h-5" />
           </button>
-          <div className="font-semibold text-slate-100 flex items-center gap-2">
-            <span>Catalogue Preview</span>
-            <span className="text-xs bg-sky-950 border border-sky-800 text-sky-400 px-2 py-0.5 rounded font-mono">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 mt-1 sm:mt-0">
+            <span className="font-semibold text-slate-100">Catalogue Preview</span>
+            <span className="text-[10px] sm:text-xs bg-sky-950 border border-sky-800 text-sky-400 px-2 py-0.5 rounded font-mono w-fit">
               A4 Portrait (2 Products/Page)
             </span>
           </div>
@@ -153,7 +172,7 @@ export const CataloguePreviewModal: React.FC<CataloguePreviewModalProps> = ({ pr
         {/* Status Toast */}
         {statusMessage && (
           <div
-            className={`hidden md:flex items-center gap-2 text-xs font-semibold px-3 py-1.5 rounded-lg ${
+            className={`hidden lg:flex items-center gap-2 text-xs font-semibold px-3 py-1.5 rounded-lg ${
               statusMessage.type === 'success'
                 ? 'bg-emerald-950/80 text-emerald-300 border border-emerald-800'
                 : 'bg-rose-950/80 text-rose-300 border border-rose-800'
@@ -168,9 +187,9 @@ export const CataloguePreviewModal: React.FC<CataloguePreviewModalProps> = ({ pr
           </div>
         )}
 
-        <div className="flex items-center gap-6">
+        <div className="flex items-center justify-between md:justify-end w-full md:w-auto gap-4 md:gap-6">
           {/* Pagination Controls */}
-          <div className="flex items-center gap-3 text-white">
+          <div className="flex items-center gap-2 md:gap-3 text-white">
             <button
               onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
               disabled={currentPage === 1 || isExporting}
@@ -179,7 +198,7 @@ export const CataloguePreviewModal: React.FC<CataloguePreviewModalProps> = ({ pr
             >
               <ChevronLeft className="w-4 h-4" />
             </button>
-            <div className="text-sm font-medium w-28 text-center text-slate-300">
+            <div className="text-xs sm:text-sm font-medium w-20 sm:w-28 text-center text-slate-300">
               Page {currentPage} of {totalPages}
             </div>
             <button
@@ -196,14 +215,14 @@ export const CataloguePreviewModal: React.FC<CataloguePreviewModalProps> = ({ pr
           <button
             onClick={handleExportPdf}
             disabled={isExporting || products.length === 0}
-            className="flex items-center gap-2 bg-sky-600 hover:bg-sky-500 active:bg-sky-700 text-white px-4 py-2 rounded-lg text-sm font-semibold transition-colors disabled:opacity-60 shadow-xs"
+            className="flex items-center justify-center gap-2 bg-sky-600 hover:bg-sky-500 active:bg-sky-700 text-white px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold transition-colors disabled:opacity-60 shadow-xs flex-1 md:flex-none whitespace-nowrap"
           >
             {isExporting ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
+              <Loader2 className="w-4 h-4 animate-spin shrink-0" />
             ) : (
-              <Download className="w-4 h-4" />
+              <Download className="w-4 h-4 shrink-0" />
             )}
-            <span>{isExporting ? 'Generating Catalogue PDF...' : 'Export PDF'}</span>
+            <span>{isExporting ? 'Generating...' : 'Export PDF'}</span>
           </button>
         </div>
       </div>
@@ -235,11 +254,12 @@ export const CataloguePreviewModal: React.FC<CataloguePreviewModalProps> = ({ pr
         <div
           className="preview-wrapper"
           style={{
-            transform: 'scale(0.82)',
+            transform: `scale(${scale})`,
             transformOrigin: 'top center',
             boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.7)',
             borderRadius: '4px',
             overflow: 'hidden',
+            marginBottom: `${-(1123 * (1 - scale))}px`, // Adjust margin to avoid empty space below scaled item
           }}
         >
           {/* Renders ONLY the current page for the preview UI */}

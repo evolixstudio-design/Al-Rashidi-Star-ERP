@@ -14,6 +14,7 @@ import {
   Eye,
   X,
 } from 'lucide-react';
+import { ModalOverlay } from '../components/common/ModalOverlay';
 
 interface AuditItem {
   id: number;
@@ -338,131 +339,200 @@ export const AuditPage: React.FC = () => {
           </span>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse text-sm">
-            <thead>
-              <tr className="bg-slate-50/50 border-b border-slate-200 text-xs font-bold text-slate-600 uppercase tracking-wider">
-                <th className="px-4 py-3.5">Date & Time</th>
-                <th className="px-4 py-3.5">Owner</th>
-                <th className="px-4 py-3.5">Module</th>
-                <th className="px-4 py-3.5">Action</th>
-                <th className="px-4 py-3.5">Reference #</th>
-                <th className="px-4 py-3.5">Details / Summary</th>
-                <th className="px-4 py-3.5 text-center">Inspect</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {loading ? (
-                <tr>
-                  <td colSpan={7} className="px-4 py-12 text-center text-slate-400 font-medium">
-                    Loading audit trail...
-                  </td>
-                </tr>
-              ) : logs.length === 0 ? (
-                <tr>
-                  <td colSpan={7} className="px-4 py-12 text-center text-slate-400 font-medium">
-                    <History className="w-10 h-10 mx-auto text-slate-300 mb-2" />
-                    No audit records match your search criteria.
-                  </td>
-                </tr>
-              ) : (
-                logs.map((log) => {
-                  const date = new Date(log.performedAt);
-                  const dateStr = date.toLocaleDateString('en-GB', {
-                    day: '2-digit',
-                    month: 'short',
-                    year: 'numeric',
-                  });
-                  const timeStr = date.toLocaleTimeString('en-US', {
-                    hour: '2-digit',
-                    minute: '2-digit',
-                    hour12: true,
-                  });
+                {/* Desktop Table */}
+                <div className="hidden md:block overflow-x-auto">
+                  <table className="w-full text-left border-collapse text-sm">
+                    <thead>
+                      <tr className="bg-slate-50/50 border-b border-slate-200 text-xs font-bold text-slate-600 uppercase tracking-wider">
+                        <th className="px-4 py-3.5">Date & Time</th>
+                        <th className="px-4 py-3.5">Owner</th>
+                        <th className="px-4 py-3.5">Module</th>
+                        <th className="px-4 py-3.5">Action</th>
+                        <th className="px-4 py-3.5">Reference #</th>
+                        <th className="px-4 py-3.5">Details / Summary</th>
+                        <th className="px-4 py-3.5 text-center">Inspect</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {loading ? (
+                        <tr>
+                          <td colSpan={7} className="px-4 py-12 text-center text-slate-400 font-medium">
+                            Loading audit trail...
+                          </td>
+                        </tr>
+                      ) : logs.length === 0 ? (
+                        <tr>
+                          <td colSpan={7} className="px-4 py-12 text-center text-slate-400 font-medium">
+                            <History className="w-10 h-10 mx-auto text-slate-300 mb-2" />
+                            No audit records match your search criteria.
+                          </td>
+                        </tr>
+                      ) : (
+                        logs.map((log) => {
+                          const date = new Date(log.performedAt);
+                          const dateStr = date.toLocaleDateString('en-GB', {
+                            day: '2-digit',
+                            month: 'short',
+                            year: 'numeric',
+                          });
+                          const timeStr = date.toLocaleTimeString('en-US', {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                            hour12: true,
+                          });
 
-                  const ref =
-                    log.details?.invoiceNumber ||
-                    log.details?.reference ||
-                    log.details?.expenseNumber ||
-                    log.details?.receiptNumber ||
-                    log.details?.purchaseNumber ||
-                    log.details?.articleNumber ||
-                    (log.entityId ? `#${log.entityId}` : '—');
+                          const ref =
+                            log.details?.invoiceNumber ||
+                            log.details?.reference ||
+                            log.details?.expenseNumber ||
+                            log.details?.receiptNumber ||
+                            log.details?.purchaseNumber ||
+                            log.details?.articleNumber ||
+                            (log.entityId ? `#${log.entityId}` : '—');
 
-                  return (
-                    <tr
-                      key={log.id}
-                      className="hover:bg-slate-50/70 transition-colors text-slate-800"
-                    >
-                      {/* Timestamp */}
-                      <td className="px-4 py-3.5 whitespace-nowrap">
-                        <div className="font-mono text-xs font-bold text-slate-900">{dateStr}</div>
-                        <div className="font-mono text-[11px] text-slate-400">{timeStr}</div>
-                      </td>
+                          return (
+                            <tr
+                              key={log.id}
+                              className="hover:bg-slate-50/70 transition-colors text-slate-800"
+                            >
+                              {/* Timestamp */}
+                              <td className="px-4 py-3.5 whitespace-nowrap">
+                                <div className="font-mono text-xs font-bold text-slate-900">{dateStr}</div>
+                                <div className="font-mono text-[11px] text-slate-400">{timeStr}</div>
+                              </td>
 
-                      {/* Owner */}
-                      <td className="px-4 py-3.5 whitespace-nowrap">
-                        <span className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-900 bg-slate-100 px-2.5 py-1 rounded-md border border-slate-200">
-                          <User className="w-3.5 h-3.5 text-slate-500" />
-                          {log.performedBy || 'System Owner'}
-                        </span>
-                      </td>
+                              {/* Owner */}
+                              <td className="px-4 py-3.5 whitespace-nowrap">
+                                <span className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-900 bg-slate-100 px-2.5 py-1 rounded-md border border-slate-200">
+                                  <User className="w-3.5 h-3.5 text-slate-500" />
+                                  {log.performedBy || 'System Owner'}
+                                </span>
+                              </td>
 
-                      {/* Module */}
-                      <td className="px-4 py-3.5 whitespace-nowrap">
-                        <span className="text-xs font-bold text-slate-700">
-                          {log.entityType}
-                        </span>
-                      </td>
+                              {/* Module */}
+                              <td className="px-4 py-3.5 whitespace-nowrap">
+                                <span className="text-xs font-bold text-slate-700">
+                                  {log.entityType}
+                                </span>
+                              </td>
 
-                      {/* Action */}
-                      <td className="px-4 py-3.5 whitespace-nowrap">
-                        {getActionBadge(log.action)}
-                      </td>
+                              {/* Action */}
+                              <td className="px-4 py-3.5 whitespace-nowrap">
+                                {getActionBadge(log.action)}
+                              </td>
 
-                      {/* Reference */}
-                      <td className="px-4 py-3.5 font-mono text-xs font-bold text-slate-900 whitespace-nowrap">
-                        {ref}
-                      </td>
+                              {/* Reference */}
+                              <td className="px-4 py-3.5 font-mono text-xs font-bold text-slate-900 whitespace-nowrap">
+                                {ref}
+                              </td>
 
-                      {/* Summary */}
-                      <td className="px-4 py-3.5 text-xs text-slate-600 max-w-sm truncate">
-                        {log.details ? (
-                          <span>
-                            {log.details.customerName && `Customer: ${log.details.customerName} • `}
-                            {log.details.totalAmountKd !== undefined && `KD ${Number(log.details.totalAmountKd).toFixed(3)} • `}
-                            {log.details.amountKd !== undefined && `KD ${Number(log.details.amountKd).toFixed(3)} • `}
-                            {log.details.reason && `Reason: ${log.details.reason} • `}
-                            {log.details.paymentStatus && `Status: ${log.details.paymentStatus}`}
-                          </span>
-                        ) : (
-                          '—'
-                        )}
-                      </td>
+                              {/* Summary */}
+                              <td className="px-4 py-3.5 text-xs text-slate-600 max-w-sm truncate">
+                                {log.details ? (
+                                  <span>
+                                    {log.details.customerName && `Customer: ${log.details.customerName} • `}
+                                    {log.details.totalAmountKd !== undefined && `KD ${Number(log.details.totalAmountKd).toFixed(3)} • `}
+                                    {log.details.amountKd !== undefined && `KD ${Number(log.details.amountKd).toFixed(3)} • `}
+                                    {log.details.reason && `Reason: ${log.details.reason} • `}
+                                    {log.details.paymentStatus && `Status: ${log.details.paymentStatus}`}
+                                  </span>
+                                ) : (
+                                  '—'
+                                )}
+                              </td>
 
-                      {/* Inspect Drawer Action */}
-                      <td className="px-4 py-3.5 text-center whitespace-nowrap">
-                        <button
-                          type="button"
-                          onClick={() => setSelectedLog(log)}
-                          className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-md transition-colors cursor-pointer"
-                        >
-                          <Eye className="w-3.5 h-3.5 text-slate-500" />
-                          <span>Inspect</span>
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
+                              {/* Inspect Drawer Action */}
+                              <td className="px-4 py-3.5 text-center whitespace-nowrap">
+                                <button
+                                  type="button"
+                                  onClick={() => setSelectedLog(log)}
+                                  className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-md transition-colors cursor-pointer"
+                                >
+                                  <Eye className="w-3.5 h-3.5 text-slate-500" />
+                                  <span>Inspect</span>
+                                </button>
+                              </td>
+                            </tr>
+                          );
+                        })
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Mobile Card List */}
+                <div className="md:hidden divide-y divide-slate-100">
+                  {loading ? (
+                    <div className="p-12 text-center text-slate-400 font-medium">
+                      Loading audit trail...
+                    </div>
+                  ) : logs.length === 0 ? (
+                    <div className="p-12 text-center text-slate-400 font-medium">
+                      <History className="w-10 h-10 mx-auto text-slate-300 mb-2" />
+                      No audit records match your search criteria.
+                    </div>
+                  ) : (
+                    logs.map((log) => {
+                      const date = new Date(log.performedAt);
+                      const dateStr = date.toLocaleDateString('en-GB', {
+                        day: '2-digit',
+                        month: 'short',
+                        year: 'numeric',
+                      });
+                      const timeStr = date.toLocaleTimeString('en-US', {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        hour12: true,
+                      });
+
+                      const ref =
+                        log.details?.invoiceNumber ||
+                        log.details?.reference ||
+                        log.details?.expenseNumber ||
+                        log.details?.receiptNumber ||
+                        log.details?.purchaseNumber ||
+                        log.details?.articleNumber ||
+                        (log.entityId ? `#${log.entityId}` : '—');
+
+                      return (
+                        <div key={log.id} className="p-4 flex flex-col gap-3">
+                          <div className="flex justify-between items-start">
+                            <div className="flex flex-col">
+                              <span className="font-mono text-xs font-bold text-slate-900">{dateStr}</span>
+                              <span className="font-mono text-[11px] text-slate-400">{timeStr}</span>
+                            </div>
+                            <div>{getActionBadge(log.action)}</div>
+                          </div>
+                          
+                          <div>
+                            <span className="text-xs font-bold text-slate-700 bg-slate-100 px-2 rounded mr-2">{log.entityType}</span>
+                            <span className="font-mono text-xs font-bold text-slate-900">{ref}</span>
+                          </div>
+
+                          <div className="flex items-center justify-between">
+                            <span className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-900">
+                              <User className="w-3.5 h-3.5 text-slate-500" />
+                              {log.performedBy || 'System Owner'}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => setSelectedLog(log)}
+                              className="inline-flex items-center justify-center w-11 h-11 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors cursor-pointer"
+                            >
+                              <Eye className="w-5 h-5 text-slate-700" />
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
       </div>
 
       {/* Inspect Audit Record Modal / Drawer */}
       {selectedLog && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-xl rounded-2xl shadow-2xl border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95 flex flex-col max-h-[85vh]">
+        <ModalOverlay onClose={() => setSelectedLog(null)}>
+          <div className="bg-white w-full max-w-xl rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[90dvh]">
             <div className="px-6 py-4 bg-slate-900 text-white flex items-center justify-between">
               <div>
                 <h3 className="font-bold text-base text-white">Audit Event Detail</h3>
@@ -552,7 +622,7 @@ export const AuditPage: React.FC = () => {
               </button>
             </div>
           </div>
-        </div>
+        </ModalOverlay>
       )}
     </div>
   );

@@ -5,14 +5,12 @@ import kuwaitSkyline from '../../assets/catalogue/kuwait_skyline_pure.png';
 
 interface CataloguePagesProps {
   products: TemporaryCatalogueProduct[];
-  /** Optional single page number to render for preview mode (1-indexed) */
   singlePage?: number;
-  /** ID prefix for the page elements (defaults to "catalogue-page") */
   idPrefix?: string;
 }
 
-// 4-Point Gold Sparkle Star Icon
-const GoldSparkle: React.FC<{ size?: number; style?: React.CSSProperties }> = ({ size = 15, style }) => (
+// 4-Point Gold Sparkle Star Icon for Dividers
+const GoldSparkle: React.FC<{ size?: number; style?: React.CSSProperties }> = ({ size = 20, style }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" style={{ display: 'inline-block', verticalAlign: 'middle', ...style }}>
     <path
       d="M12 0 L14.5 9.5 L24 12 L14.5 14.5 L12 24 L9.5 14.5 L0 12 L9.5 9.5 Z"
@@ -20,122 +18,52 @@ const GoldSparkle: React.FC<{ size?: number; style?: React.CSSProperties }> = ({
     />
     <defs>
       <linearGradient id="goldSparkleGrad" x1="0" y1="0" x2="24" y2="24" gradientUnits="userSpaceOnUse">
-        <stop offset="0%" stopColor="#f3deb3" />
-        <stop offset="45%" stopColor="#c5a059" />
-        <stop offset="100%" stopColor="#8e6d33" />
+        <stop offset="0%" stopColor="#d8b974" />
+        <stop offset="50%" stopColor="#c5a059" />
+        <stop offset="100%" stopColor="#9a7b3c" />
       </linearGradient>
     </defs>
   </svg>
 );
 
-// Gold divider line with centered sparkle
-const GoldDivider: React.FC<{ width?: string; style?: React.CSSProperties }> = ({ width = '100%', style }) => (
+// Large faint star watermark for background
+const FaintStarWatermark: React.FC<{ style?: React.CSSProperties }> = ({ style }) => (
+  <svg width="400" height="400" viewBox="0 0 24 24" fill="none" style={{ position: 'absolute', opacity: 0.03, pointerEvents: 'none', zIndex: 1, ...style }}>
+    <path
+      d="M12 0 L14.5 9.5 L24 12 L14.5 14.5 L12 24 L9.5 14.5 L0 12 L9.5 9.5 Z"
+      fill="#c5a059"
+    />
+  </svg>
+);
+
+// Central Page Divider
+const CentralDivider: React.FC<{ style?: React.CSSProperties }> = ({ style }) => (
   <div
     style={{
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
-      width,
-      margin: '0 auto',
+      width: '100%',
       ...style,
     }}
   >
-    <div style={{ flex: 1, height: '1px', background: 'linear-gradient(90deg, transparent, #c5a059 70%, #c5a059)' }} />
-    <GoldSparkle size={13} style={{ margin: '0 10px', flexShrink: 0 }} />
-    <div style={{ flex: 1, height: '1px', background: 'linear-gradient(90deg, #c5a059, #c5a059 30%, transparent)' }} />
+    <div style={{ flex: 1, height: '1.5px', background: 'linear-gradient(90deg, transparent, #c5a059 70%, #c5a059)' }} />
+    <GoldSparkle size={30} style={{ margin: '0 16px', flexShrink: 0 }} />
+    <div style={{ flex: 1, height: '1.5px', background: 'linear-gradient(90deg, #c5a059, #c5a059 30%, transparent)' }} />
   </div>
 );
 
-// Classical Folio Corner Flourish
-const CornerFlourish: React.FC<{ x: number; y: number; rotate: number }> = ({ x, y, rotate }) => (
-  <g transform={`translate(${x}, ${y}) rotate(${rotate})`}>
-    <path
-      d="M 6 34 L 6 10 C 6 7.8 7.8 6 10 6 L 34 6"
-      fill="none"
-      stroke="#c5a059"
-      strokeWidth="1.6"
-    />
-    <path
-      d="M 12 28 L 12 14 C 12 12.9 12.9 12 14 12 L 28 12"
-      fill="none"
-      stroke="#d8b974"
-      strokeWidth="1"
-    />
-    <circle cx="19" cy="19" r="2.2" fill="#c5a059" />
-    <path d="M 6 6 L 2 2 M 10 2 L 2 10" stroke="#c5a059" strokeWidth="1" />
-  </g>
+const WhatsAppIcon = () => (
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="#25D366" style={{ flexShrink: 0 }}>
+    <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51a12.8 12.8 0 0 0-.57-.01c-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.029 6.988 2.898a9.82 9.82 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.88 11.88 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.82 11.82 0 0 0-3.48-8.413Z"/>
+  </svg>
 );
 
-// Navy Circular Badges
-const BuildingBadge: React.FC = () => (
-  <div
-    style={{
-      width: '36px',
-      height: '36px',
-      borderRadius: '50%',
-      backgroundColor: '#0c2340',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      flexShrink: 0,
-    }}
-  >
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#d8b974" strokeWidth="1.8">
-      <path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z" />
-      <path d="M6 12H4a2 2 0 0 0-2 2v8h20v-8a2 2 0 0 0-2-2h-2" />
-      <path d="M10 6h4" />
-      <path d="M10 10h4" />
-      <path d="M10 14h4" />
-      <path d="M10 18h4" />
-    </svg>
-  </div>
-);
-
-const LocationBadge: React.FC = () => (
-  <div
-    style={{
-      width: '36px',
-      height: '36px',
-      borderRadius: '50%',
-      backgroundColor: '#0c2340',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      flexShrink: 0,
-    }}
-  >
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#d8b974" strokeWidth="1.8">
-      <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z" />
-      <circle cx="12" cy="10" r="3" />
-    </svg>
-  </div>
-);
-
-const PhoneBadge: React.FC = () => (
-  <div
-    style={{
-      width: '36px',
-      height: '36px',
-      borderRadius: '50%',
-      backgroundColor: '#0c2340',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      flexShrink: 0,
-    }}
-  >
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#d8b974" strokeWidth="1.8">
-      <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" />
-    </svg>
-  </div>
-);
-
-// Frame Wrapper for All Pages (A4 Portrait, Double Gold Border, Corner Flourishes, Arabesque Background)
+// Frame Wrapper for All Pages (A4 Portrait, clean white)
 const CataloguePageFrame: React.FC<{
   id: string;
   children: React.ReactNode;
-  showKuwaitSkyline?: boolean;
-}> = ({ id, children, showKuwaitSkyline = false }) => {
+}> = ({ id, children }) => {
   return (
     <div
       id={id}
@@ -147,7 +75,7 @@ const CataloguePageFrame: React.FC<{
         minHeight: '1123px',
         maxWidth: '794px',
         maxHeight: '1123px',
-        backgroundColor: '#faf6ee',
+        backgroundColor: '#ffffff',
         position: 'relative',
         margin: '0 auto',
         overflow: 'hidden',
@@ -157,7 +85,7 @@ const CataloguePageFrame: React.FC<{
         fontFamily: '"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
       }}
     >
-      {/* 1. Vector Geometric Arabesque Pattern & Gold Border Frame */}
+      {/* Subtle Pattern & Watermark Background */}
       <svg
         width="794"
         height="1123"
@@ -173,53 +101,24 @@ const CataloguePageFrame: React.FC<{
         }}
       >
         <defs>
-          <pattern id="islamic-geo-pattern" width="84" height="84" patternUnits="userSpaceOnUse">
+          <pattern id="islamic-geo-pattern" width="80" height="80" patternUnits="userSpaceOnUse">
             <path
-              d="M42 8 L50 25 L67 17 L59 34 L76 42 L59 50 L67 67 L50 59 L42 76 L34 59 L17 67 L25 50 L8 42 L25 34 L17 17 L34 25 Z"
+              d="M40 8 L48 24 L66 16 L56 32 L72 40 L56 48 L66 64 L48 56 L40 72 L32 56 L14 64 L24 48 L8 40 L24 32 L14 16 L32 24 Z"
               fill="none"
               stroke="#c5a059"
-              strokeWidth="0.65"
-              opacity="0.08"
+              strokeWidth="0.3"
+              opacity="0.04"
             />
-            <circle cx="42" cy="42" r="13" fill="none" stroke="#c5a059" strokeWidth="0.5" opacity="0.06" />
           </pattern>
         </defs>
-
-        {/* Subtle geometric pattern overlay across background */}
         <rect width="100%" height="100%" fill="url(#islamic-geo-pattern)" />
-
-        {/* Double Gold Outer/Inner Borders */}
-        <rect x="18" y="18" width="758" height="1087" fill="none" stroke="#c5a059" strokeWidth="1.8" />
-        <rect x="23" y="23" width="748" height="1077" fill="none" stroke="#e0c78a" strokeWidth="0.8" />
-
-        {/* 4 Corner Flourishes */}
-        <CornerFlourish x={18} y={18} rotate={0} />
-        <CornerFlourish x={776} y={18} rotate={90} />
-        <CornerFlourish x={776} y={1105} rotate={180} />
-        <CornerFlourish x={18} y={1105} rotate={270} />
       </svg>
+      
+      {/* Large faint decorative stars to match reference */}
+      <FaintStarWatermark style={{ right: '-100px', top: '150px', transform: 'scale(1.5)' }} />
+      <FaintStarWatermark style={{ right: '-50px', bottom: '150px', transform: 'scale(1.2)' }} />
 
-      {/* 2. Kuwait Skyline Graphic (For Cover & Contact pages) */}
-      {showKuwaitSkyline && (
-        <img
-          src={kuwaitSkyline}
-          alt="Kuwait Skyline"
-          style={{
-            position: 'absolute',
-            left: '24px',
-            bottom: '105px',
-            width: '746px',
-            height: '240px',
-            objectFit: 'cover',
-            objectPosition: 'bottom center',
-            pointerEvents: 'none',
-            zIndex: 2,
-            opacity: 0.95,
-          }}
-        />
-      )}
-
-      {/* 3. Page Content Container */}
+      {/* Page Content Container */}
       <div
         style={{
           position: 'relative',
@@ -229,7 +128,7 @@ const CataloguePageFrame: React.FC<{
           display: 'flex',
           flexDirection: 'column',
           boxSizing: 'border-box',
-          padding: '28px',
+          padding: '24px 32px', // Tighter outer padding to allow content to breathe
         }}
       >
         {children}
@@ -238,6 +137,118 @@ const CataloguePageFrame: React.FC<{
   );
 };
 
+// Legacy Frame for exactly matching the Cover & Contact screenshots
+const LegacyPageFrame: React.FC<{
+  id: string;
+  children: React.ReactNode;
+}> = ({ id, children }) => {
+  return (
+    <div
+      id={id}
+      className="catalogue-page"
+      style={{
+        width: '794px',
+        height: '1123px',
+        minWidth: '794px',
+        minHeight: '1123px',
+        maxWidth: '794px',
+        maxHeight: '1123px',
+        backgroundColor: '#ffffff',
+        position: 'relative',
+        margin: '0 auto',
+        overflow: 'hidden',
+        boxSizing: 'border-box',
+        display: 'flex',
+        flexDirection: 'column',
+        fontFamily: '"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+      }}
+    >
+      <svg
+        width="794"
+        height="1123"
+        viewBox="0 0 794 1123"
+        style={{ position: 'absolute', top: 0, left: 0, pointerEvents: 'none', zIndex: 1 }}
+      >
+        <rect width="100%" height="100%" fill="url(#islamic-geo-pattern)" />
+      </svg>
+      
+      <div style={{ padding: '16px', boxSizing: 'border-box', width: '100%', height: '100%', position: 'relative', zIndex: 2 }}>
+        <div style={{ width: '100%', height: '100%', border: '1px solid #d8b974', padding: '6px', boxSizing: 'border-box' }}>
+          <div style={{ width: '100%', height: '100%', border: '1.5px solid #d8b974', position: 'relative', display: 'flex', flexDirection: 'column' }}>
+            
+            {/* Corner Diamonds */}
+            <div style={{ position: 'absolute', top: '-3px', left: '-3px', width: '4px', height: '4px', backgroundColor: '#d8b974', transform: 'rotate(45deg)' }} />
+            <div style={{ position: 'absolute', top: '-3px', right: '-3px', width: '4px', height: '4px', backgroundColor: '#d8b974', transform: 'rotate(45deg)' }} />
+            <div style={{ position: 'absolute', bottom: '-3px', left: '-3px', width: '4px', height: '4px', backgroundColor: '#d8b974', transform: 'rotate(45deg)' }} />
+            <div style={{ position: 'absolute', bottom: '-3px', right: '-3px', width: '4px', height: '4px', backgroundColor: '#d8b974', transform: 'rotate(45deg)' }} />
+
+            {/* Top Texts */}
+            <div style={{ position: 'absolute', top: '24px', left: '32px', textAlign: 'center', fontFamily: "'Inter', sans-serif", fontSize: '9px', fontWeight: 600, color: '#a88c52', letterSpacing: '2px', lineHeight: 1.6 }}>
+              QUALITY<br/>PRODUCTS<br/>BRIGHTER<br/>TOMORROWS
+            </div>
+            <div style={{ position: 'absolute', top: '24px', right: '32px', textAlign: 'center', fontFamily: "'Inter', sans-serif", fontSize: '9px', fontWeight: 600, color: '#a88c52', letterSpacing: '2px', lineHeight: 1.6 }}>
+              TRUST<br/>TRADE<br/>TOGETHER
+            </div>
+
+            {/* Content Area */}
+            <div style={{ flex: 1, position: 'relative', zIndex: 10, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+              {children}
+            </div>
+
+            {/* Skyline */}
+            <div style={{ position: 'absolute', bottom: '60px', left: 0, width: '100%', zIndex: 5 }}>
+              <img src={kuwaitSkyline} alt="Kuwait Skyline" style={{ width: '100%', height: '180px', objectFit: 'cover', objectPosition: 'bottom center', opacity: 0.15 }} />
+            </div>
+
+            {/* Footer Bar */}
+            <div style={{ position: 'absolute', bottom: '32px', left: 0, width: '100%', zIndex: 10, backgroundColor: 'rgba(253, 251, 247, 0.95)', borderTop: '1px solid #d8b974', borderBottom: '1px solid #d8b974', padding: '12px 32px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxSizing: 'border-box' }}>
+              
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{ width: '32px', height: '32px', borderRadius: '50%', backgroundColor: '#0c2340', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 21h18M5 21V5a2 2 0 012-2h10a2 2 0 012 2v16M9 21v-4a2 2 0 012-2h2a2 2 0 012 2v4" /></svg>
+                </div>
+                <div style={{ fontFamily: "'Inter', sans-serif", fontSize: '11px', color: '#0c2340', lineHeight: 1.4 }}>
+                  <span style={{ fontWeight: 800 }}>RASHIDI STAR</span><br/>General Trading Co.
+                </div>
+              </div>
+
+              <div style={{ width: '1px', height: '24px', backgroundColor: '#e5d3ab' }} />
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{ width: '32px', height: '32px', borderRadius: '50%', backgroundColor: '#0c2340', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/><circle cx="12" cy="9" r="2.5"/></svg>
+                </div>
+                <div style={{ fontFamily: "'Inter', sans-serif", fontSize: '11px', color: '#0c2340', lineHeight: 1.4 }}>
+                  <span style={{ fontWeight: 800 }}>Souk Al-Fahad</span><br/>Opp. Masjid Al-Fahad - Shop No. 36<br/>Kuwait
+                </div>
+              </div>
+
+              <div style={{ width: '1px', height: '24px', backgroundColor: '#e5d3ab' }} />
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{ width: '32px', height: '32px', borderRadius: '50%', backgroundColor: '#0c2340', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72 12.84 12.84 0 00.7 2.81 2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45 12.84 12.84 0 002.81.7A2 2 0 0122 16.92z"/></svg>
+                </div>
+                <div style={{ fontFamily: "'Inter', sans-serif", fontSize: '11px', color: '#0c2340', lineHeight: 1.4 }}>
+                  <span style={{ fontWeight: 800 }}>Mob.: 99598297</span><br/><span style={{ fontWeight: 800 }}>Mob.: 97488405</span>
+                </div>
+              </div>
+              
+            </div>
+
+            {/* Bottom text outside footer */}
+            <div style={{ position: 'absolute', bottom: '10px', left: 0, width: '100%', textAlign: 'center', fontFamily: "'Inter', sans-serif", fontSize: '8px', fontWeight: 700, color: '#a88c52', letterSpacing: '4px' }}>
+              PEOPLE &nbsp;&nbsp;&nbsp;•&nbsp;&nbsp;&nbsp; PRODUCTS &nbsp;&nbsp;&nbsp;•&nbsp;&nbsp;&nbsp; POSSIBILITIES
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+
 export const CataloguePages = forwardRef<HTMLDivElement, CataloguePagesProps>(
   ({ products, singlePage, idPrefix = 'catalogue-page' }, ref) => {
     // Exactly 2 products per product page
@@ -245,209 +256,315 @@ export const CataloguePages = forwardRef<HTMLDivElement, CataloguePagesProps>(
     const totalPages = Math.ceil(products.length / 2) + 2;
 
     // Helper: Render a Single Product Half-Section (Top or Bottom)
-    const renderProductHalf = (product?: TemporaryCatalogueProduct, isTopHalf = true) => {
+    const renderProductHalf = (product?: TemporaryCatalogueProduct) => {
       if (!product) {
-        // Empty half when odd number of products
         return (
           <div
             style={{
               flex: 1,
-              height: '455px',
               display: 'flex',
+              flexDirection: 'column',
               alignItems: 'center',
               justifyContent: 'center',
+              position: 'relative',
+              overflow: 'hidden',
             }}
-          />
+          >
+            {/* Elegant placeholder for empty half */}
+            <div style={{ opacity: 0.2, transform: 'scale(0.8)', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+              <FaintStarWatermark style={{ position: 'relative', opacity: 0.1 }} />
+            </div>
+            <div
+              style={{
+                fontFamily: "'Inter', sans-serif",
+                fontSize: '10px',
+                fontWeight: 600,
+                color: '#cbd5e1',
+                letterSpacing: '4px',
+                textTransform: 'uppercase',
+                marginTop: '16px',
+              }}
+            >
+              PREMIUM WHOLESALE COLLECTION
+            </div>
+          </div>
         );
       }
+
+      const hasPrice = product.wholesalePrice !== undefined && product.wholesalePrice !== null;
+      const hasDetails = !!(product.size || product.colour || product.quality);
+      const autoHighlights = ["Premium Quality", "Soft & Durable", "Ideal for Wholesale"];
+
+      // Small generic highlight icons (simple SVG shapes)
+      const highlightIcons = [
+        // Diamond
+        <svg key="h-diamond" width="16" height="16" viewBox="0 0 16 16" fill="none" style={{ flexShrink: 0 }}>
+          <path d="M8 1 L15 8 L8 15 L1 8 Z" fill="none" stroke="#c5a059" strokeWidth="1.5" />
+        </svg>,
+        // Circle
+        <svg key="h-circle" width="16" height="16" viewBox="0 0 16 16" fill="none" style={{ flexShrink: 0 }}>
+          <circle cx="8" cy="8" r="6" fill="none" stroke="#c5a059" strokeWidth="1.5" />
+        </svg>,
+        // Star
+        <svg key="h-star" width="16" height="16" viewBox="0 0 16 16" fill="none" style={{ flexShrink: 0 }}>
+          <path d="M8 1 L9.8 6 L15 6.5 L11 10 L12.2 15 L8 12.5 L3.8 15 L5 10 L1 6.5 L6.2 6 Z" fill="none" stroke="#c5a059" strokeWidth="1.2" />
+        </svg>,
+      ];
+
+      // Price or Contact box
+      const renderPriceOrContactBox = () => (
+        <div
+          style={{
+            width: '100%',
+            border: '1.5px solid #d8b974',
+            borderRadius: '8px',
+            backgroundColor: '#faf8f2',
+            display: 'flex',
+            flexDirection: 'column',
+            boxShadow: '0 4px 12px rgba(197, 160, 89, 0.04)',
+            overflow: 'hidden',
+          }}
+        >
+          {hasPrice ? (
+            <div
+              style={{
+                padding: '18px 16px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontFamily: "'Playfair Display', Georgia, serif",
+                fontSize: '32px',
+                fontWeight: 800,
+                color: '#0c2340',
+              }}
+            >
+              K.D. {product.wholesalePrice!.toFixed(3)}
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column' }}>
+              <div
+                style={{
+                  padding: '16px 12px',
+                  textAlign: 'center',
+                  fontFamily: "'Playfair Display', Georgia, serif",
+                  fontSize: '24px',
+                  fontWeight: 800,
+                  color: '#9a7b3c',
+                  letterSpacing: '0.5px',
+                }}
+              >
+                CONTACT FOR PRICE
+              </div>
+              <div style={{ width: '100%', height: '1px', backgroundColor: '#e0c78a' }} />
+              <div
+                style={{
+                  padding: '12px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px',
+                  fontFamily: "'Inter', sans-serif",
+                  fontSize: '14px',
+                  fontWeight: 700,
+                  color: '#0c2340',
+                }}
+              >
+                <WhatsAppIcon />
+                WhatsApp: +965 99598297 / 97488405
+              </div>
+            </div>
+          )}
+        </div>
+      );
+
+      // Detail info row (Size / Colour / Quality)
+      const renderDetailRow = (label: string, value: string) => (
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', marginBottom: '6px' }}>
+          <span
+            style={{
+              fontFamily: "'Inter', sans-serif",
+              fontSize: '10px',
+              fontWeight: 800,
+              color: '#94a3b8',
+              letterSpacing: '1.5px',
+              textTransform: 'uppercase',
+              flexShrink: 0,
+            }}
+          >
+            {label}:
+          </span>
+          <span
+            style={{
+              fontFamily: "'Inter', sans-serif",
+              fontSize: '15px',
+              fontWeight: 700,
+              color: '#0c2340',
+            }}
+          >
+            {value}
+          </span>
+        </div>
+      );
 
       return (
         <div
           style={{
             flex: 1,
-            height: '455px',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            padding: '12px 18px',
+            padding: '8px 0',
             boxSizing: 'border-box',
-            position: 'relative',
+            gap: '28px',
           }}
         >
-          {/* Column 1: Left Decorative Vertical Motto */}
+          {/* Left Column: Product Image */}
           <div
             style={{
-              width: '85px',
+              flex: '0 0 44%',
+              height: '100%',
+              maxHeight: '420px',
+              borderRadius: '16px',
+              border: '1.5px solid #d8b974',
+              boxShadow: '0 8px 24px rgba(0,0,0,0.04)',
+              overflow: 'hidden',
               display: 'flex',
-              flexDirection: 'column',
               alignItems: 'center',
               justifyContent: 'center',
-              textAlign: 'center',
+              backgroundColor: '#fff',
+              padding: '6px',
+              boxSizing: 'border-box',
             }}
           >
-            <div style={{ width: '26px', height: '1px', backgroundColor: '#c5a059', marginBottom: '10px' }} />
             <div
               style={{
-                fontFamily: "'Cinzel', serif",
-                fontSize: '8.5px',
-                fontWeight: 600,
-                color: '#8a704c',
-                letterSpacing: '2.5px',
-                lineHeight: 1.8,
+                width: '100%',
+                height: '100%',
+                borderRadius: '12px',
+                overflow: 'hidden',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                backgroundColor: '#f8f8f8',
               }}
             >
-              {isTopHalf ? (
-                <>
-                  ELEGANCE
-                  <br />
-                  IN EVERY
-                  <br />
-                  DETAIL
-                </>
-              ) : (
-                <>
-                  COMFORT
-                  <br />
-                  MEETS
-                  <br />
-                  TRADITION
-                </>
-              )}
+              <img
+                src={product.imageObjUrl}
+                alt={product.name}
+                style={{
+                  width: '100%',
+                  height: '100%',
+                  objectFit: 'contain',
+                }}
+              />
             </div>
-            <div style={{ width: '26px', height: '1px', backgroundColor: '#c5a059', marginTop: '10px' }} />
           </div>
 
-          {/* Column 2: Architectural Arch Niche Showcase */}
+          {/* Right Column: Product Details */}
           <div
             style={{
-              width: '280px',
-              height: '400px',
-              borderRadius: '140px 140px 8px 8px',
-              background: 'radial-gradient(ellipse at 50% 30%, #ffffff 0%, #f4eee2 75%, #ebdcc6 100%)',
-              border: '1.5px solid rgba(197, 160, 89, 0.4)',
-              boxShadow: 'inset 0 4px 18px rgba(184, 142, 68, 0.12), 0 6px 16px rgba(0, 0, 0, 0.04)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              padding: '16px',
-              boxSizing: 'border-box',
-              position: 'relative',
-              overflow: 'hidden',
-            }}
-          >
-            <img
-              src={product.imageObjUrl}
-              alt={product.name}
-              style={{
-                maxWidth: '92%',
-                maxHeight: '92%',
-                objectFit: 'contain',
-                display: 'block',
-                filter: 'drop-shadow(0 8px 14px rgba(0,0,0,0.08))',
-              }}
-            />
-          </div>
-
-          {/* Column 3: Dynamic Product Details Stack */}
-          <div
-            style={{
-              width: '290px',
+              flex: '1',
               display: 'flex',
               flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              textAlign: 'center',
-              padding: '0 10px',
-              boxSizing: 'border-box',
+              alignItems: 'flex-start',
+              paddingRight: '4px',
             }}
           >
-            {/* Dynamic Product Name */}
+            {/* Product Name */}
             <h3
               style={{
-                fontFamily: "'Cinzel', 'Playfair Display', Georgia, serif",
-                fontSize: '22px',
+                fontFamily: "'Playfair Display', Georgia, serif",
+                fontSize: '38px',
                 fontWeight: 800,
                 color: '#0c2340',
-                letterSpacing: '1.2px',
-                margin: '0 0 6px 0',
-                textTransform: 'uppercase',
-                lineHeight: 1.25,
-                maxWidth: '280px',
+                lineHeight: 1.1,
+                margin: '0 0 8px 0',
+                letterSpacing: '-0.5px',
+                wordBreak: 'break-word',
               }}
             >
               {product.name}
             </h3>
 
-            {/* Dynamic Article No */}
+            {/* Optional Article Number */}
+            {product.articleNo && (
+              <div
+                style={{
+                  fontFamily: "'Inter', sans-serif",
+                  fontSize: '17px',
+                  color: '#64748b',
+                  marginBottom: '12px',
+                  fontWeight: 500,
+                }}
+              >
+                Article No: <span style={{ fontWeight: 800, color: '#0c2340' }}>{product.articleNo}</span>
+              </div>
+            )}
+
+            {/* Optional Product Details (Size / Colour / Quality) */}
+            {hasDetails && (
+              <div
+                style={{
+                  width: '100%',
+                  padding: '10px 14px',
+                  backgroundColor: '#faf9f6',
+                  border: '1px solid #e8e2d4',
+                  borderRadius: '8px',
+                  marginBottom: '12px',
+                }}
+              >
+                {product.quality && renderDetailRow('Quality', product.quality)}
+                {product.size && renderDetailRow('Size', product.size)}
+                {product.colour && renderDetailRow('Colour', product.colour)}
+              </div>
+            )}
+
+            {/* Auto-generated Highlight Badges for Clothes */}
             <div
               style={{
-                fontFamily: "'Playfair Display', Georgia, serif",
-                fontSize: '14.5px',
-                fontWeight: 600,
-                color: '#0c2340',
-                margin: '0 0 18px 0',
-                letterSpacing: '0.4px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'flex-start',
+                gap: '20px',
+                flexWrap: 'wrap',
+                marginBottom: '12px',
+                width: '100%',
               }}
             >
-              Article No: <span style={{ fontWeight: 700 }}>{product.articleNo}</span>
+              {autoHighlights.map((hl, i) => (
+                <div
+                  key={i}
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    gap: '4px',
+                    minWidth: '80px',
+                    maxWidth: '110px',
+                  }}
+                >
+                  {highlightIcons[i % highlightIcons.length]}
+                  <span
+                    style={{
+                      fontFamily: "'Inter', sans-serif",
+                      fontSize: '9px',
+                      fontWeight: 800,
+                      color: '#0c2340',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.8px',
+                      textAlign: 'center',
+                      lineHeight: 1.2,
+                    }}
+                  >
+                    {hl}
+                  </span>
+                </div>
+              ))}
             </div>
 
-            {/* Wholesale Price Label */}
-            <div
-              style={{
-                fontFamily: "'Cinzel', serif",
-                fontSize: '10.5px',
-                fontWeight: 700,
-                color: '#8a704c',
-                letterSpacing: '3px',
-                textTransform: 'uppercase',
-                marginBottom: '4px',
-              }}
-            >
-              W H O L E S A L E &nbsp; P R I C E
-            </div>
-
-            {/* Dynamic Price in KD */}
-            <div
-              style={{
-                fontFamily: "'Cinzel', 'Playfair Display', Georgia, serif",
-                fontSize: '38px',
-                fontWeight: 800,
-                color: '#0c2340',
-                letterSpacing: '-0.5px',
-                lineHeight: 1.1,
-              }}
-            >
-              K.D. {product.wholesalePrice.toFixed(3)}
-            </div>
-
-            {/* Gold Sparkle Star */}
-            <GoldSparkle size={15} style={{ margin: '12px auto 8px auto' }} />
-
-            {/* Luxury Editorial Subtitle */}
-            <div
-              style={{
-                fontFamily: "'Cinzel', serif",
-                fontSize: '8px',
-                fontWeight: 600,
-                color: '#8a704c',
-                letterSpacing: '2px',
-                lineHeight: 1.7,
-              }}
-            >
-              {isTopHalf ? (
-                <>
-                  TIMELESS STYLE
-                  <br />
-                  FOR A BRIGHTER TOMORROW
-                </>
-              ) : (
-                <>
-                  NATURAL FABRICS
-                  <br />
-                  FOR A BRIGHTER TOMORROW
-                </>
-              )}
+            {/* Price / Contact Box */}
+            <div style={{ marginTop: '24px', width: '100%' }}>
+              {renderPriceOrContactBox()}
             </div>
           </div>
         </div>
@@ -456,428 +573,195 @@ export const CataloguePages = forwardRef<HTMLDivElement, CataloguePagesProps>(
 
     // 1. Render Cover Page (Page 1)
     const renderCoverPage = (pageNumber = 1) => (
-      <CataloguePageFrame
-        key="cover-page"
-        id={`${idPrefix}-${pageNumber}`}
-        showKuwaitSkyline={true}
-      >
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', position: 'relative', height: '100%' }}>
-          {/* Top Corner Mottos */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', padding: '12px 16px 0 16px' }}>
-            <div style={{ textAlign: 'center', width: '130px' }}>
-              <div
-                style={{
-                  fontFamily: "'Cinzel', serif",
-                  fontSize: '9px',
-                  fontWeight: 600,
-                  color: '#8a704c',
-                  letterSpacing: '2.5px',
-                  lineHeight: 1.6,
-                }}
-              >
-                QUALITY
-                <br />
-                PRODUCTS
-                <br />
-                BRIGHTER
-                <br />
-                TOMORROWS
-              </div>
-              <div style={{ width: '28px', height: '1px', backgroundColor: '#c5a059', margin: '8px auto 0 auto' }} />
-            </div>
-
-            <div style={{ textAlign: 'center', width: '130px' }}>
-              <div
-                style={{
-                  fontFamily: "'Cinzel', serif",
-                  fontSize: '9px',
-                  fontWeight: 600,
-                  color: '#8a704c',
-                  letterSpacing: '2.5px',
-                  lineHeight: 1.6,
-                }}
-              >
-                TRUST
-                <br />
-                TRADE
-                <br />
-                TOGETHER
-              </div>
-              <div style={{ width: '28px', height: '1px', backgroundColor: '#c5a059', margin: '8px auto 0 auto' }} />
-            </div>
+      <LegacyPageFrame id={`${idPrefix}-${pageNumber}`}>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', transform: 'translateY(-40px)' }}>
+          <img
+            src={rashidiLuxuryLogo}
+            alt="Rashidi Star Logo"
+            style={{ width: '380px', height: 'auto', maxHeight: '260px', objectFit: 'contain', display: 'block' }}
+          />
+          <div style={{ width: '400px', margin: '40px 0' }}>
+            <div style={{ width: '100%', height: '1.5px', background: '#c5a059' }} />
           </div>
-
-          {/* Central Logo Lockup */}
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginTop: '10px' }}>
-            <img
-              src={rashidiLuxuryLogo}
-              alt="Rashidi Star Logo"
-              style={{
-                width: '260px',
-                height: 'auto',
-                maxHeight: '190px',
-                objectFit: 'contain',
-                display: 'block',
-              }}
-            />
-            {/* Gold Star Divider Line */}
-            <div style={{ width: '240px', marginTop: '6px' }}>
-              <GoldDivider width="240px" />
-            </div>
-          </div>
-
-          {/* Main Titles */}
-          <div style={{ textAlign: 'center', marginTop: '22px' }}>
-            <h1
-              style={{
-                fontFamily: "'Cinzel', 'Playfair Display', Georgia, serif",
-                fontSize: '48px',
-                fontWeight: 800,
-                color: '#0c2340',
-                letterSpacing: '4px',
-                margin: 0,
-                textTransform: 'uppercase',
-                lineHeight: 1.1,
-              }}
-            >
-              WHOLESALE
-            </h1>
-            <h2
-              style={{
-                fontFamily: "'Cinzel', 'Playfair Display', Georgia, serif",
-                fontSize: '25px',
-                fontWeight: 700,
-                color: '#0c2340',
-                letterSpacing: '5px',
-                margin: '8px 0 0 0',
-                textTransform: 'uppercase',
-              }}
-            >
-              PRODUCT CATALOGUE
-            </h2>
-
-            {/* Kuwait Italic Accent with flanking gold lines */}
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '16px',
-                width: '320px',
-                margin: '14px auto 0 auto',
-              }}
-            >
-              <div style={{ flex: 1, height: '1px', backgroundColor: '#c5a059' }} />
-              <span
-                style={{
-                  fontFamily: "'Playfair Display', Georgia, serif",
-                  fontStyle: 'italic',
-                  fontSize: '22px',
-                  color: '#0c2340',
-                  letterSpacing: '2px',
-                  fontWeight: 600,
-                }}
-              >
-                Kuwait
-              </span>
-              <div style={{ flex: 1, height: '1px', backgroundColor: '#c5a059' }} />
-            </div>
-
-            {/* Secondary Motto */}
-            <div
-              style={{
-                fontFamily: "'Cinzel', serif",
-                fontSize: '10.5px',
-                fontWeight: 600,
-                color: '#8a704c',
-                letterSpacing: '3.5px',
-                marginTop: '36px',
-                lineHeight: 1.8,
-              }}
-            >
-              GLOBAL PRODUCTS
-              <br />
-              STRONGER TOMORROWS
-              <div style={{ width: '38px', height: '1px', backgroundColor: '#c5a059', margin: '12px auto 0 auto' }} />
-            </div>
-          </div>
-
-          {/* Bottom Contact Strip (Gold Framed Card with 3 Columns) */}
-          <div
+          
+          <h1
             style={{
-              marginTop: 'auto',
-              marginBottom: '4px',
-              borderTop: '1px solid #c5a059',
-              borderBottom: '1px solid #c5a059',
-              padding: '14px 18px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              backgroundColor: 'rgba(250, 246, 238, 0.92)',
-              backdropFilter: 'blur(2px)',
-            }}
-          >
-            {/* Left: Building Badge */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1 }}>
-              <BuildingBadge />
-              <div>
-                <div style={{ fontFamily: "'Cinzel', serif", fontSize: '13px', fontWeight: 800, color: '#0c2340' }}>
-                  Rashidi Star
-                </div>
-                <div style={{ fontSize: '11px', fontWeight: 600, color: '#334155' }}>
-                  General Trading Co.
-                </div>
-              </div>
-            </div>
-
-            <div style={{ width: '1px', height: '42px', backgroundColor: '#c5a059', margin: '0 10px' }} />
-
-            {/* Center: Location Badge */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1.3 }}>
-              <LocationBadge />
-              <div style={{ fontSize: '11px', color: '#0c2340', lineHeight: 1.35 }}>
-                <div style={{ fontWeight: 700 }}>Souk Al-Fahad</div>
-                <div style={{ color: '#475569', fontSize: '10.5px' }}>Opp. Masjid Al-Fahad - Shop No. 36</div>
-                <div style={{ color: '#475569', fontSize: '10.5px' }}>Kuwait</div>
-              </div>
-            </div>
-
-            <div style={{ width: '1px', height: '42px', backgroundColor: '#c5a059', margin: '0 10px' }} />
-
-            {/* Right: Phone Badge */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1 }}>
-              <PhoneBadge />
-              <div style={{ fontSize: '12px', fontWeight: 700, color: '#0c2340', lineHeight: 1.4 }}>
-                <div>Mob.: 99598297</div>
-                <div>Mob.: 97488405</div>
-              </div>
-            </div>
-          </div>
-
-          {/* Bottom-most Footer Sub-line */}
-          <div
-            style={{
-              textAlign: 'center',
-              fontFamily: "'Cinzel', serif",
-              fontSize: '8.5px',
-              fontWeight: 600,
-              color: '#8a704c',
+              fontFamily: "'Playfair Display', Georgia, serif",
+              fontSize: '56px',
+              fontWeight: 800,
+              color: '#0c2340',
               letterSpacing: '3px',
-              paddingTop: '8px',
+              margin: 0,
+              textTransform: 'uppercase',
+              lineHeight: 1.1,
             }}
           >
-            PEOPLE &nbsp; • &nbsp; PRODUCTS &nbsp; • &nbsp; POSSIBILITIES
+            WHOLESALE
+          </h1>
+          <h2
+            style={{
+              fontFamily: "'Playfair Display', Georgia, serif",
+              fontSize: '32px',
+              fontWeight: 700,
+              color: '#0c2340',
+              letterSpacing: '5px',
+              margin: '12px 0 0 0',
+              textTransform: 'uppercase',
+            }}
+          >
+            PRODUCT CATALOGUE
+          </h2>
+          <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: '24px', fontWeight: 700, color: '#0c2340', fontStyle: 'italic', marginTop: '4px' }}>
+            Kuwait
+          </div>
+
+          <div style={{ width: '400px', height: '1.5px', background: '#e0c78a', marginTop: '24px' }} />
+
+          <div
+            style={{
+              fontFamily: "'Inter', sans-serif",
+              fontSize: '11px',
+              fontWeight: 600,
+              color: '#a88c52',
+              letterSpacing: '4px',
+              marginTop: '32px',
+              textTransform: 'uppercase',
+            }}
+          >
+            GLOBAL PRODUCTS
+          </div>
+          <div
+            style={{
+              fontFamily: "'Inter', sans-serif",
+              fontSize: '11px',
+              fontWeight: 600,
+              color: '#a88c52',
+              letterSpacing: '4px',
+              marginTop: '8px',
+              textTransform: 'uppercase',
+            }}
+          >
+            STRONGER TOMORROWS
           </div>
         </div>
-      </CataloguePageFrame>
+      </LegacyPageFrame>
     );
 
-    // 2. Render Product Page (2 Products per Page: Top Half & Bottom Half)
+    // 2. Render Product Page
     const renderProductPage = (pageProducts: TemporaryCatalogueProduct[], pageNumber: number) => {
       const prod1 = pageProducts[0];
-      const prod2 = pageProducts[1]; // undefined if single product remaining
+      const prod2 = pageProducts[1];
 
       return (
         <CataloguePageFrame
           key={`product-page-${pageNumber}`}
           id={`${idPrefix}-${pageNumber}`}
-          showKuwaitSkyline={false}
         >
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100%' }}>
-            {/* Header Bar */}
-            <div
-              style={{
-                height: '84px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                padding: '0 12px 10px 12px',
-                borderBottom: '1.2px solid #c5a059',
-                boxSizing: 'border-box',
-                flexShrink: 0,
-              }}
-            >
-              {/* Left Motto */}
-              <div style={{ textAlign: 'center', width: '105px' }}>
-                <div
-                  style={{
-                    fontFamily: "'Cinzel', serif",
-                    fontSize: '8px',
-                    fontWeight: 600,
-                    color: '#8a704c',
-                    letterSpacing: '1.6px',
-                    lineHeight: 1.5,
-                  }}
-                >
-                  PEOPLE
-                  <br />
-                  PRODUCTS
-                  <br />
-                  POSSIBILITIES
-                </div>
-                <div style={{ width: '22px', height: '1px', backgroundColor: '#c5a059', margin: '6px auto 0 auto' }} />
-              </div>
-
-              {/* Center-Left: Logo Lockup */}
+          {/* Header */}
+          <div style={{ width: '100%', flexShrink: 0, marginBottom: '16px' }}>
+            {/* Top row with logo and catalogue title */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBottom: '16px' }}>
               <div style={{ display: 'flex', alignItems: 'center' }}>
                 <img
                   src={rashidiLuxuryLogo}
                   alt="Rashidi Star"
-                  style={{ height: '56px', width: 'auto', objectFit: 'contain' }}
+                  style={{ height: '70px', width: 'auto', objectFit: 'contain' }}
                 />
               </div>
-
-              {/* Vertical Divider */}
-              <div style={{ width: '1px', height: '50px', backgroundColor: '#c5a059', margin: '0 12px' }} />
-
-              {/* Center-Right: Wholesale Product Catalogue Title */}
-              <div style={{ flex: 1, textAlign: 'center' }}>
+              <div style={{ textAlign: 'right' }}>
                 <div
                   style={{
-                    fontFamily: "'Cinzel', 'Playfair Display', Georgia, serif",
-                    fontSize: '21px',
-                    fontWeight: 800,
+                    fontFamily: "'Inter', sans-serif",
+                    fontSize: '22px',
+                    fontWeight: 700,
                     color: '#0c2340',
-                    letterSpacing: '2.5px',
-                    lineHeight: 1.1,
+                    letterSpacing: '3.5px',
+                    textTransform: 'uppercase',
                   }}
                 >
-                  WHOLESALE
+                  WHOLESALE PRODUCT CATALOGUE
                 </div>
                 <div
                   style={{
-                    fontFamily: "'Cinzel', 'Playfair Display', Georgia, serif",
-                    fontSize: '13px',
-                    fontWeight: 700,
-                    color: '#0c2340',
+                    fontFamily: "'Inter', sans-serif",
+                    fontSize: '11px',
+                    fontWeight: 600,
+                    color: '#64748b',
                     letterSpacing: '3px',
-                    marginTop: '2px',
+                    marginTop: '8px',
+                    textTransform: 'uppercase',
                   }}
                 >
-                  PRODUCT CATALOGUE
+                  QUALITY PRODUCTS &nbsp;&nbsp;|&nbsp;&nbsp; TRUSTED PARTNER
                 </div>
-                <div
-                  style={{
-                    fontFamily: "'Cinzel', serif",
-                    fontSize: '7.5px',
-                    fontWeight: 600,
-                    color: '#8a704c',
-                    letterSpacing: '1.5px',
-                    marginTop: '4px',
-                  }}
-                >
-                  QUALITY PRODUCTS &nbsp; • &nbsp; BRIGHTER TOMORROWS
-                </div>
-              </div>
-
-              {/* Right Motto */}
-              <div style={{ textAlign: 'center', width: '105px' }}>
-                <div
-                  style={{
-                    fontFamily: "'Cinzel', serif",
-                    fontSize: '8px',
-                    fontWeight: 600,
-                    color: '#8a704c',
-                    letterSpacing: '1.6px',
-                    lineHeight: 1.5,
-                  }}
-                >
-                  TRUST
-                  <br />
-                  TRADE
-                  <br />
-                  TOGETHER
-                </div>
-                <div style={{ width: '22px', height: '1px', backgroundColor: '#c5a059', margin: '6px auto 0 auto' }} />
               </div>
             </div>
-
-            {/* Main Product Area: Exactly 2 Products (Top Half & Bottom Half) */}
+            {/* Double gold line header divider */}
+            <div style={{ width: '100%', height: '2px', backgroundColor: '#c5a059', marginBottom: '8px' }} />
+            {/* Sub-header text */}
             <div
               style={{
-                flex: 1,
-                display: 'flex',
-                flexDirection: 'column',
-                boxSizing: 'border-box',
-                overflow: 'hidden',
+                textAlign: 'right',
+                fontFamily: "'Inter', sans-serif",
+                fontSize: '10px',
+                fontWeight: 700,
+                color: '#64748b',
+                letterSpacing: '2.5px',
+                textTransform: 'uppercase',
               }}
             >
-              {/* Top Half: Product 1 */}
-              {renderProductHalf(prod1, true)}
+              KUWAIT &nbsp;&nbsp;|&nbsp;&nbsp; GLOBAL TRADE &nbsp;&nbsp;|&nbsp;&nbsp; A STRONGER TOMORROW
+            </div>
+          </div>
 
-              {/* Center Gold Line Divider with Star */}
-              <GoldDivider width="95%" style={{ margin: '4px auto' }} />
+          {/* Main Content Area */}
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+            {/* Top Half */}
+            {renderProductHalf(prod1)}
 
-              {/* Bottom Half: Product 2 (or placeholder if odd) */}
-              {renderProductHalf(prod2, false)}
+            {/* Central Elegant Gold Divider */}
+            <div style={{ margin: '12px 0', flexShrink: 0 }}>
+              <CentralDivider />
             </div>
 
-            {/* Footer Bar */}
-            <div
-              style={{
-                height: '62px',
-                display: 'flex',
-                flexDirection: 'column',
-                justifyContent: 'center',
-                borderTop: '1.2px solid #c5a059',
-                padding: '4px 12px 0 12px',
-                boxSizing: 'border-box',
-                flexShrink: 0,
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                {/* Left: Building Info */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <BuildingBadge />
-                  <div>
-                    <div style={{ fontFamily: "'Cinzel', serif", fontSize: '11px', fontWeight: 800, color: '#0c2340' }}>
-                      Rashidi Star
-                    </div>
-                    <div style={{ fontSize: '9.5px', fontWeight: 600, color: '#334155' }}>
-                      General Trading Co.
-                    </div>
-                  </div>
-                </div>
+            {/* Bottom Half */}
+            {renderProductHalf(prod2)}
+          </div>
 
-                <div style={{ width: '1px', height: '28px', backgroundColor: '#c5a059' }} />
-
-                {/* Center: Phone Contacts */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <PhoneBadge />
-                  <div style={{ fontSize: '11.5px', fontWeight: 700, color: '#0c2340' }}>
-                    99598297 | 97488405
-                  </div>
-                </div>
-
-                <div style={{ width: '1px', height: '28px', backgroundColor: '#c5a059' }} />
-
-                {/* Right: Page Number */}
-                <div
-                  style={{
-                    fontFamily: "'Playfair Display', Georgia, serif",
-                    fontSize: '14.5px',
-                    fontWeight: 700,
-                    color: '#0c2340',
-                    letterSpacing: '0.5px',
-                  }}
-                >
-                  Page {pageNumber}
-                </div>
-              </div>
-
-              {/* Bottom Sub-line */}
+          {/* Footer */}
+          <div
+            style={{
+              width: '100%',
+              flexShrink: 0,
+              marginTop: '16px',
+            }}
+          >
+            <div style={{ width: '100%', height: '1.5px', backgroundColor: '#c5a059', marginBottom: '16px' }} />
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <div
                 style={{
-                  textAlign: 'center',
-                  fontFamily: "'Cinzel', serif",
-                  fontSize: '8px',
-                  fontWeight: 600,
-                  color: '#8a704c',
+                  fontFamily: "'Inter', sans-serif",
+                  fontSize: '11px',
+                  fontWeight: 700,
+                  color: '#0c2340',
                   letterSpacing: '2.5px',
-                  paddingTop: '6px',
+                  textTransform: 'uppercase',
                 }}
               >
-                KUWAIT &nbsp; • &nbsp; GLOBAL PRODUCTS &nbsp; • &nbsp; STRONGER TOMORROWS
+                RASHIDI STAR GENERAL TRADING CO.<br/>
+                <span style={{ color: '#64748b', fontWeight: 600 }}>KUWAIT</span>
+              </div>
+              <div
+                style={{
+                  fontFamily: "'Inter', sans-serif",
+                  fontSize: '11px',
+                  fontWeight: 700,
+                  color: '#64748b',
+                  letterSpacing: '2.5px',
+                  textTransform: 'uppercase',
+                }}
+              >
+                <span style={{ color: '#c5a059', margin: '0 12px' }}>|</span> QUALITY PRODUCTS FOR A BRIGHTER TOMORROW
               </div>
             </div>
           </div>
@@ -885,189 +769,63 @@ export const CataloguePages = forwardRef<HTMLDivElement, CataloguePagesProps>(
       );
     };
 
-    // 3. Render Contact Us Page (Last Page)
+    // 3. Render Contact Us Page
     const renderContactPage = (pageNumber: number) => (
-      <CataloguePageFrame
-        key="contact-page"
-        id={`${idPrefix}-${pageNumber}`}
-        showKuwaitSkyline={true}
-      >
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', position: 'relative', height: '100%' }}>
-          {/* Top Corner Mottos */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', padding: '12px 16px 0 16px' }}>
-            <div style={{ textAlign: 'center', width: '130px' }}>
-              <div
-                style={{
-                  fontFamily: "'Cinzel', serif",
-                  fontSize: '9px',
-                  fontWeight: 600,
-                  color: '#8a704c',
-                  letterSpacing: '2.5px',
-                  lineHeight: 1.6,
-                }}
-              >
-                QUALITY
-                <br />
-                PRODUCTS
-                <br />
-                BRIGHTER
-                <br />
-                TOMORROWS
-              </div>
-              <div style={{ width: '28px', height: '1px', backgroundColor: '#c5a059', margin: '8px auto 0 auto' }} />
-            </div>
+      <LegacyPageFrame id={`${idPrefix}-${pageNumber}`}>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', transform: 'translateY(-40px)' }}>
+          <img
+            src={rashidiLuxuryLogo}
+            alt="Rashidi Star Logo"
+            style={{ width: '380px', height: 'auto', maxHeight: '260px', objectFit: 'contain', display: 'block' }}
+          />
 
-            <div style={{ textAlign: 'center', width: '130px' }}>
-              <div
-                style={{
-                  fontFamily: "'Cinzel', serif",
-                  fontSize: '9px',
-                  fontWeight: 600,
-                  color: '#8a704c',
-                  letterSpacing: '2.5px',
-                  lineHeight: 1.6,
-                }}
-              >
-                TRUST
-                <br />
-                TRADE
-                <br />
-                TOGETHER
-              </div>
-              <div style={{ width: '28px', height: '1px', backgroundColor: '#c5a059', margin: '8px auto 0 auto' }} />
-            </div>
-          </div>
-
-          {/* Central Logo Lockup */}
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginTop: '10px' }}>
-            <img
-              src={rashidiLuxuryLogo}
-              alt="Rashidi Star Logo"
-              style={{
-                width: '260px',
-                height: 'auto',
-                maxHeight: '190px',
-                objectFit: 'contain',
-                display: 'block',
-              }}
-            />
-            {/* Gold Star Divider Line */}
-            <div style={{ width: '240px', marginTop: '6px' }}>
-              <GoldDivider width="240px" />
-            </div>
-          </div>
-
-          {/* Main Title Section */}
-          <div style={{ textAlign: 'center', marginTop: '26px' }}>
-            <h1
-              style={{
-                fontFamily: "'Cinzel', 'Playfair Display', Georgia, serif",
-                fontSize: '46px',
-                fontWeight: 800,
-                color: '#0c2340',
-                letterSpacing: '4px',
-                margin: 0,
-                textTransform: 'uppercase',
-                lineHeight: 1.1,
-              }}
-            >
-              CONTACT US
-            </h1>
-            <h2
-              style={{
-                fontFamily: "'Amiri', 'Cairo', serif",
-                fontSize: '36px',
-                fontWeight: 700,
-                color: '#0c2340',
-                margin: '6px 0 0 0',
-                lineHeight: 1.2,
-              }}
-            >
-              اتصل بنا
-            </h2>
-
-            {/* Gold Star Divider Line */}
-            <div style={{ width: '280px', margin: '14px auto 0 auto' }}>
-              <GoldDivider width="280px" />
-            </div>
-          </div>
-
-          {/* Central Contact Information Card */}
-          <div
+          <h1
             style={{
-              width: '380px',
-              margin: '28px auto 0 auto',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '22px',
+              fontFamily: "'Playfair Display', Georgia, serif",
+              fontSize: '56px',
+              fontWeight: 800,
+              color: '#0c2340',
+              letterSpacing: '4px',
+              margin: '40px 0 0 0',
+              lineHeight: 1,
+              textTransform: 'uppercase',
             }}
           >
-            {/* Address Row */}
+            CONTACT US
+          </h1>
+          <div style={{ fontFamily: "'Arial', sans-serif", fontSize: '32px', color: '#0c2340', fontWeight: 'bold', marginTop: '16px' }}>
+            اتصل بنا
+          </div>
+          <div style={{ width: '280px', height: '1.5px', background: '#e0c78a', margin: '24px 0' }} />
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', alignItems: 'flex-start', marginTop: '16px' }}>
             <div style={{ display: 'flex', alignItems: 'flex-start', gap: '16px' }}>
-              <LocationBadge />
-              <div style={{ color: '#0c2340', lineHeight: 1.4 }}>
-                <div style={{ fontFamily: "'Cinzel', serif", fontSize: '16px', fontWeight: 800 }}>
-                  Rashidi Star
-                </div>
-                <div style={{ fontSize: '13px', fontWeight: 600, color: '#334155', marginBottom: '4px' }}>
-                  General Trading Co.
-                </div>
-                <div style={{ fontSize: '13px', fontWeight: 500 }}>Souk Al-Fahad</div>
-                <div style={{ fontSize: '12.5px', color: '#334155' }}>Opp. Masjid Al-Fahad - Shop No. 36</div>
-                <div style={{ fontSize: '12.5px', color: '#334155' }}>Kuwait</div>
+              <div style={{ width: '40px', height: '40px', borderRadius: '50%', backgroundColor: '#0c2340', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/><circle cx="12" cy="9" r="2.5"/></svg>
+              </div>
+              <div style={{ fontFamily: "'Inter', sans-serif", fontSize: '15px', color: '#0c2340', lineHeight: 1.5 }}>
+                <span style={{ fontWeight: 800 }}>RASHIDI STAR</span><br/>General Trading Co.<br/>Souk Al-Fahad<br/>Opp. Masjid Al-Fahad - Shop No. 36<br/>Kuwait
               </div>
             </div>
 
-            {/* Phone Row */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-              <PhoneBadge />
-              <div style={{ fontSize: '16px', fontWeight: 800, color: '#0c2340', lineHeight: 1.5 }}>
-                <div>Mob.: 99598297</div>
-                <div>Mob.: 97488405</div>
+              <div style={{ width: '40px', height: '40px', borderRadius: '50%', backgroundColor: '#0c2340', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72 12.84 12.84 0 00.7 2.81 2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45 12.84 12.84 0 002.81.7A2 2 0 0122 16.92z"/></svg>
+              </div>
+              <div style={{ fontFamily: "'Inter', sans-serif", fontSize: '18px', color: '#0c2340', lineHeight: 1.5, fontWeight: 800 }}>
+                Mob.: 99598297<br/>Mob.: 97488405
               </div>
             </div>
           </div>
 
-          {/* Thank You Note & Star */}
-          <div style={{ textAlign: 'center', marginTop: '30px' }}>
-            <div style={{ width: '200px', margin: '0 auto 12px auto' }}>
-              <div style={{ height: '1px', backgroundColor: '#c5a059', opacity: 0.7 }} />
-            </div>
-            <div
-              style={{
-                fontFamily: "'Playfair Display', Georgia, serif",
-                fontStyle: 'italic',
-                fontSize: '18px',
-                color: '#7a633c',
-                fontWeight: 600,
-                letterSpacing: '0.5px',
-              }}
-            >
-              Thank you for your business.
-            </div>
-            <GoldSparkle size={14} style={{ margin: '10px auto 0 auto' }} />
-          </div>
-
-          {/* Bottom-most Footer Sub-line */}
-          <div
-            style={{
-              marginTop: 'auto',
-              textAlign: 'center',
-              fontFamily: "'Cinzel', serif",
-              fontSize: '8.5px',
-              fontWeight: 600,
-              color: '#8a704c',
-              letterSpacing: '3px',
-              paddingBottom: '6px',
-            }}
-          >
-            PEOPLE &nbsp; • &nbsp; PRODUCTS &nbsp; • &nbsp; POSSIBILITIES
+          <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: '26px', fontWeight: 700, color: '#a88c52', fontStyle: 'italic', marginTop: '60px' }}>
+            Thank you for your business.
           </div>
         </div>
-      </CataloguePageFrame>
+      </LegacyPageFrame>
     );
 
-    // If singlePage is requested (for preview mode):
+    // Render logic
     if (singlePage !== undefined) {
       if (singlePage === 1) {
         return <div ref={ref} className="catalogue-pages-container">{renderCoverPage(1)}</div>;
@@ -1084,20 +842,14 @@ export const CataloguePages = forwardRef<HTMLDivElement, CataloguePagesProps>(
       );
     }
 
-    // Default: render ALL pages (for export container)
     let pageCounter = 1;
     return (
       <div ref={ref} className="catalogue-pages-container" style={{ width: '794px' }}>
-        {/* Page 1: Cover */}
         {renderCoverPage(pageCounter++)}
-
-        {/* Middle: Product Pages (2 products each) */}
         {productPages.map((pageProducts) => {
           const pNum = pageCounter++;
           return renderProductPage(pageProducts, pNum);
         })}
-
-        {/* Last Page: Contact Us */}
         {renderContactPage(pageCounter++)}
       </div>
     );

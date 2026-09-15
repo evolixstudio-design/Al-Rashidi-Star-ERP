@@ -445,7 +445,8 @@ export const ReportsPage: React.FC = () => {
                     By sales volume
                   </span>
                 </div>
-                <div className="overflow-x-auto">
+                {/* Desktop Table */}
+                <div className="hidden md:block overflow-x-auto">
                   <table className="w-full text-left border-collapse text-sm">
                     <thead>
                       <tr className="bg-slate-50/50 border-b border-slate-200 text-xs font-bold text-slate-600 uppercase">
@@ -482,6 +483,32 @@ export const ReportsPage: React.FC = () => {
                       )}
                     </tbody>
                   </table>
+                </div>
+
+                {/* Mobile Card List */}
+                <div className="md:hidden divide-y divide-slate-100">
+                  {salesData.topSellingProducts?.length > 0 ? (
+                    salesData.topSellingProducts.map((p: any) => (
+                      <div key={p.productId || p.articleNumber} className="p-4 space-y-2">
+                        <div className="flex items-start justify-between gap-2">
+                          <div>
+                            <div className="font-semibold text-slate-900">{p.productName || p.nameEn}</div>
+                            <div className="font-mono text-xs text-slate-500">{p.articleNumber}</div>
+                          </div>
+                          <div className="text-right font-black text-slate-900">
+                            KD {Number(p.totalRevenueKd ?? p.totalKd ?? 0).toFixed(3)}
+                          </div>
+                        </div>
+                        <div className="text-xs font-medium text-slate-600 bg-slate-50 p-2 rounded border border-slate-100 inline-block">
+                          Sold: {p.quantitySoldDisplay || (p.totalDozen !== undefined ? `${p.totalDozen} dz ${p.remainderPcs || 0} pcs` : `${p.totalPcs || 0} pcs`)}
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="p-8 text-center text-slate-400 text-sm">
+                      No product sales recorded in this date range.
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -594,7 +621,8 @@ export const ReportsPage: React.FC = () => {
                 <div className="px-5 py-3.5 bg-slate-50/80 border-b border-slate-200 font-bold text-sm text-slate-900 uppercase">
                   Purchases by Supplier
                 </div>
-                <div className="overflow-x-auto">
+                {/* Desktop Table */}
+                <div className="hidden md:block overflow-x-auto">
                   <table className="w-full text-left border-collapse text-sm">
                     <thead>
                       <tr className="bg-slate-50/50 border-b border-slate-200 text-xs font-bold text-slate-600 uppercase">
@@ -619,6 +647,29 @@ export const ReportsPage: React.FC = () => {
                       ))}
                     </tbody>
                   </table>
+                </div>
+
+                {/* Mobile Card List */}
+                <div className="md:hidden divide-y divide-slate-100">
+                  {(purchaseData.bySupplier || purchaseData.supplierBreakdown)?.length > 0 ? (
+                    (purchaseData.bySupplier || purchaseData.supplierBreakdown).map((s: any) => (
+                      <div key={s.supplierId || s.supplierName} className="p-4 flex items-center justify-between">
+                        <div>
+                          <div className="font-semibold text-slate-900">{s.supplierName}</div>
+                          <div className="text-xs text-slate-500 mt-0.5">
+                            {s.count ?? s.receiptCount ?? 0} Receipts {s.totalPcs ? `(${s.totalPcs} pcs)` : ''}
+                          </div>
+                        </div>
+                        <div className="font-black text-slate-900 text-right">
+                          KD {Number(s.totalKd || 0).toFixed(3)}
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="p-8 text-center text-slate-400 text-sm">
+                      No purchases found.
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -671,84 +722,140 @@ export const ReportsPage: React.FC = () => {
                   <div className="px-5 py-3.5 bg-slate-50/80 border-b border-slate-200 font-bold text-sm text-slate-900 uppercase">
                     Current Stock Valuation By Article
                   </div>
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left border-collapse text-sm">
-                      <thead>
-                        <tr className="bg-slate-50/50 border-b border-slate-200 text-xs font-bold text-slate-600 uppercase">
-                          <th className="px-4 py-3">Article #</th>
-                          <th className="px-4 py-3">Product</th>
-                          <th className="px-4 py-3">In Stock</th>
-                          <th className="px-4 py-3 text-right">Cost Price</th>
-                          <th className="px-4 py-3 text-right">Selling Price</th>
-                          <th className="px-4 py-3 text-right">Total Valuation</th>
+                {/* Desktop Table */}
+                <div className="hidden md:block overflow-x-auto">
+                  <table className="w-full text-left border-collapse text-sm">
+                    <thead>
+                      <tr className="bg-slate-50/50 border-b border-slate-200 text-xs font-bold text-slate-600 uppercase">
+                        <th className="px-4 py-3">Article #</th>
+                        <th className="px-4 py-3">Product</th>
+                        <th className="px-4 py-3">In Stock</th>
+                        <th className="px-4 py-3 text-right">Cost Price</th>
+                        <th className="px-4 py-3 text-right">Selling Price</th>
+                        <th className="px-4 py-3 text-right">Total Valuation</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {stockData.items.map((item: any) => (
+                        <tr key={item.articleNumber || item.productId} className="hover:bg-slate-50/70">
+                          <td className="px-4 py-3 font-mono font-bold text-xs text-slate-900">
+                            {item.articleNumber}
+                          </td>
+                          <td className="px-4 py-3 font-semibold text-slate-800">
+                            {item.productName || item.nameEn}
+                          </td>
+                          <td className="px-4 py-3 text-xs font-semibold text-slate-700">
+                            {item.stockDisplay || `${item.totalPcs || 0} pcs`}
+                          </td>
+                          <td className="px-4 py-3 text-right font-mono text-xs text-slate-600">
+                            KD {Number(item.costPriceKd || 0).toFixed(3)}
+                          </td>
+                          <td className="px-4 py-3 text-right font-mono text-xs text-slate-600">
+                            KD {Number(item.sellingPriceKd || 0).toFixed(3)}
+                          </td>
+                          <td className="px-4 py-3 text-right font-mono font-black text-sm text-slate-900">
+                            KD {Number(item.totalValuationKd || 0).toFixed(3)}
+                          </td>
                         </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-100">
-                        {stockData.items.map((item: any) => (
-                          <tr key={item.articleNumber || item.productId} className="hover:bg-slate-50/70">
-                            <td className="px-4 py-3 font-mono font-bold text-xs text-slate-900">
-                              {item.articleNumber}
-                            </td>
-                            <td className="px-4 py-3 font-semibold text-slate-800">
-                              {item.productName || item.nameEn}
-                            </td>
-                            <td className="px-4 py-3 text-xs font-semibold text-slate-700">
-                              {item.stockDisplay || `${item.totalPcs || 0} pcs`}
-                            </td>
-                            <td className="px-4 py-3 text-right font-mono text-xs text-slate-600">
-                              KD {Number(item.costPriceKd || 0).toFixed(3)}
-                            </td>
-                            <td className="px-4 py-3 text-right font-mono text-xs text-slate-600">
-                              KD {Number(item.sellingPriceKd || 0).toFixed(3)}
-                            </td>
-                            <td className="px-4 py-3 text-right font-mono font-black text-sm text-slate-900">
-                              KD {Number(item.totalValuationKd || 0).toFixed(3)}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Mobile Card List */}
+                <div className="md:hidden divide-y divide-slate-100">
+                  {stockData.items.map((item: any) => (
+                    <div key={item.articleNumber || item.productId} className="p-4 space-y-2">
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <div className="font-semibold text-slate-900">{item.productName || item.nameEn}</div>
+                          <div className="font-mono text-xs text-slate-500">{item.articleNumber}</div>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-xs text-slate-500">Total Value</div>
+                          <div className="font-black text-slate-900">KD {Number(item.totalValuationKd || 0).toFixed(3)}</div>
+                        </div>
+                      </div>
+                      <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-100 grid grid-cols-2 gap-2 text-xs">
+                        <div>
+                          <span className="text-slate-500 block mb-0.5">In Stock</span>
+                          <span className="font-semibold text-slate-800">{item.stockDisplay || `${item.totalPcs || 0} pcs`}</span>
+                        </div>
+                        <div>
+                          <span className="text-slate-500 block mb-0.5">Selling Price</span>
+                          <span className="font-mono text-emerald-700 font-bold">KD {Number(item.sellingPriceKd || 0).toFixed(3)}</span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
                 </div>
               ) : (
                 <div className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden">
                   <div className="px-5 py-3.5 bg-slate-50/80 border-b border-slate-200 font-bold text-sm text-slate-900 uppercase">
                     Stock Valuation By Category
                   </div>
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left border-collapse text-sm">
-                      <thead>
-                        <tr className="bg-slate-50/50 border-b border-slate-200 text-xs font-bold text-slate-600 uppercase">
-                          <th className="px-4 py-3">Category</th>
-                          <th className="px-4 py-3 text-center">Products</th>
-                          <th className="px-4 py-3">Total Stock Volume</th>
-                          <th className="px-4 py-3 text-right">Cost Valuation</th>
-                          <th className="px-4 py-3 text-right">Retail Valuation</th>
+                {/* Desktop Table */}
+                <div className="hidden md:block overflow-x-auto">
+                  <table className="w-full text-left border-collapse text-sm">
+                    <thead>
+                      <tr className="bg-slate-50/50 border-b border-slate-200 text-xs font-bold text-slate-600 uppercase">
+                        <th className="px-4 py-3">Category</th>
+                        <th className="px-4 py-3 text-center">Products</th>
+                        <th className="px-4 py-3">Total Stock Volume</th>
+                        <th className="px-4 py-3 text-right">Cost Valuation</th>
+                        <th className="px-4 py-3 text-right">Retail Valuation</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {(stockData.categoryBreakdown || []).map((cb: any) => (
+                        <tr key={cb.categoryName} className="hover:bg-slate-50/70">
+                          <td className="px-4 py-3 font-semibold text-slate-900">
+                            {cb.categoryName}
+                          </td>
+                          <td className="px-4 py-3 text-center text-xs text-slate-600">
+                            {cb.productCount}
+                          </td>
+                          <td className="px-4 py-3 text-xs font-medium text-slate-700">
+                            {cb.totalDozen !== undefined ? `${cb.totalDozen} dz ${cb.remainderPcs || 0} pcs` : `${cb.totalStockPcs} pcs`}
+                          </td>
+                          <td className="px-4 py-3 text-right font-mono text-xs font-semibold text-slate-800">
+                            KD {Number(cb.costValuationKd || 0).toFixed(3)}
+                          </td>
+                          <td className="px-4 py-3 text-right font-mono font-black text-sm text-emerald-700">
+                            KD {Number(cb.retailValuationKd || 0).toFixed(3)}
+                          </td>
                         </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-100">
-                        {(stockData.categoryBreakdown || []).map((cb: any) => (
-                          <tr key={cb.categoryName} className="hover:bg-slate-50/70">
-                            <td className="px-4 py-3 font-semibold text-slate-900">
-                              {cb.categoryName}
-                            </td>
-                            <td className="px-4 py-3 text-center text-xs text-slate-600">
-                              {cb.productCount}
-                            </td>
-                            <td className="px-4 py-3 text-xs font-medium text-slate-700">
-                              {cb.totalDozen !== undefined ? `${cb.totalDozen} dz ${cb.remainderPcs || 0} pcs` : `${cb.totalStockPcs} pcs`}
-                            </td>
-                            <td className="px-4 py-3 text-right font-mono text-xs font-semibold text-slate-800">
-                              KD {Number(cb.costValuationKd || 0).toFixed(3)}
-                            </td>
-                            <td className="px-4 py-3 text-right font-mono font-black text-sm text-emerald-700">
-                              KD {Number(cb.retailValuationKd || 0).toFixed(3)}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Mobile Card List */}
+                <div className="md:hidden divide-y divide-slate-100">
+                  {(stockData.categoryBreakdown || []).map((cb: any) => (
+                    <div key={cb.categoryName} className="p-4 space-y-2">
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <div className="font-semibold text-slate-900">{cb.categoryName}</div>
+                          <div className="text-xs text-slate-500 mt-0.5">
+                            {cb.productCount} Products • {cb.totalDozen !== undefined ? `${cb.totalDozen} dz ${cb.remainderPcs || 0} pcs` : `${cb.totalStockPcs} pcs`}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-100 grid grid-cols-2 gap-2 text-xs">
+                        <div>
+                          <span className="text-slate-500 block mb-0.5">Cost Valuation</span>
+                          <span className="font-semibold text-slate-800">KD {Number(cb.costValuationKd || 0).toFixed(3)}</span>
+                        </div>
+                        <div>
+                          <span className="text-slate-500 block mb-0.5">Retail Valuation</span>
+                          <span className="font-mono text-emerald-700 font-bold">KD {Number(cb.retailValuationKd || 0).toFixed(3)}</span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
                 </div>
               )}
             </div>
@@ -799,7 +906,8 @@ export const ReportsPage: React.FC = () => {
                 <div className="px-5 py-3.5 bg-slate-50/80 border-b border-slate-200 font-bold text-sm text-slate-900 uppercase">
                   Customer Receivables Schedule
                 </div>
-                <div className="overflow-x-auto">
+                {/* Desktop Table */}
+                <div className="hidden md:block overflow-x-auto">
                   <table className="w-full text-left border-collapse text-sm">
                     <thead>
                       <tr className="bg-slate-50/50 border-b border-slate-200 text-xs font-bold text-slate-600 uppercase">
@@ -832,6 +940,34 @@ export const ReportsPage: React.FC = () => {
                       ))}
                     </tbody>
                   </table>
+                </div>
+
+                {/* Mobile Card List */}
+                <div className="md:hidden divide-y divide-slate-100">
+                  {customerData.customers?.map((c: any) => (
+                    <div key={c.customerId || c.id} className="p-4 space-y-2">
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <div className="font-semibold text-slate-900">{c.customerName || c.name}</div>
+                          <div className="font-mono text-xs text-slate-500">{c.phone || '—'}</div>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-xs text-slate-500">Outstanding</div>
+                          <div className="font-black text-rose-700">KD {Number(c.outstandingKd || 0).toFixed(3)}</div>
+                        </div>
+                      </div>
+                      <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-100 grid grid-cols-2 gap-2 text-xs">
+                        <div>
+                          <span className="text-slate-500 block mb-0.5">Total Invoiced</span>
+                          <span className="font-semibold text-slate-800">KD {Number(c.totalSalesKd || 0).toFixed(3)}</span>
+                        </div>
+                        <div>
+                          <span className="text-slate-500 block mb-0.5">Total Received</span>
+                          <span className="font-mono text-emerald-700 font-bold">KD {Number(c.totalReceivedKd || 0).toFixed(3)}</span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>
@@ -882,7 +1018,8 @@ export const ReportsPage: React.FC = () => {
                 <div className="px-5 py-3.5 bg-slate-50/80 border-b border-slate-200 font-bold text-sm text-slate-900 uppercase">
                   Expenses by Category
                 </div>
-                <div className="overflow-x-auto">
+                {/* Desktop Table */}
+                <div className="hidden md:block overflow-x-auto">
                   <table className="w-full text-left border-collapse text-sm">
                     <thead>
                       <tr className="bg-slate-50/50 border-b border-slate-200 text-xs font-bold text-slate-600 uppercase">
@@ -911,6 +1048,23 @@ export const ReportsPage: React.FC = () => {
                       ))}
                     </tbody>
                   </table>
+                </div>
+
+                {/* Mobile Card List */}
+                <div className="md:hidden divide-y divide-slate-100">
+                  {(expenseData.byCategory || expenseData.categoryBreakdown)?.map((cat: any) => (
+                    <div key={cat.category} className="p-4 flex items-center justify-between">
+                      <div>
+                        <div className="font-semibold text-slate-900">{cat.category}</div>
+                        <div className="text-xs text-slate-500 mt-0.5">
+                          {cat.count} Entries {cat.percentage ? `(${cat.percentage}%)` : ''}
+                        </div>
+                      </div>
+                      <div className="font-black text-slate-900 text-right">
+                        KD {Number(cat.totalKd || 0).toFixed(3)}
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>

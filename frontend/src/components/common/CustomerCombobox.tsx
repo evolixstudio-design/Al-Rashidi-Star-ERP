@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { ChevronDown, Search as SearchIcon, Check } from 'lucide-react';
 import { normalizeSearchText } from '../../utils/searchUtils';
+import { useViewportDropdown } from '../../hooks/useViewportDropdown';
 
 interface CustomerOption {
   id: number;
@@ -23,28 +25,39 @@ export const CustomerCombobox: React.FC<CustomerComboboxProps> = ({
   onChange,
   disabled,
 }) => {
-  const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState('');
   const [highlightedIndex, setHighlightedIndex] = useState(0);
 
   const containerRef = useRef<HTMLDivElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  const { isOpen, setIsOpen, style } = useViewportDropdown(containerRef);
 
   useEffect(() => {
     const handleOutsideClick = (e: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+      const target = e.target as Node;
+      if (
+        containerRef.current && 
+        !containerRef.current.contains(target) &&
+        dropdownRef.current &&
+        !dropdownRef.current.contains(target)
+      ) {
         setIsOpen(false);
       }
     };
     if (isOpen) {
       document.addEventListener('mousedown', handleOutsideClick);
-      inputRef.current?.focus();
+      // Small delay to allow portal to render
+      setTimeout(() => {
+        inputRef.current?.focus();
+      }, 50);
       setHighlightedIndex(0);
     } else {
       setSearch('');
     }
     return () => document.removeEventListener('mousedown', handleOutsideClick);
-  }, [isOpen]);
+  }, [isOpen, setIsOpen]);
 
   const filtered = useMemo(() => {
     let sorted = [...customers];
@@ -94,13 +107,13 @@ export const CustomerCombobox: React.FC<CustomerComboboxProps> = ({
   };
 
   return (
-    <div className="relative" ref={containerRef}>
-      {!isOpen ? (
+    <>
+      <div className="relative" ref={containerRef}>
         <div 
           tabIndex={disabled ? -1 : 0}
           onKeyDown={handleKeyDown}
-          onClick={() => { if (!disabled) setIsOpen(true); }}
-          className={`w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-sm flex items-center justify-between transition-all ${disabled ? 'bg-slate-50 text-slate-500 cursor-not-allowed' : 'bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900 cursor-pointer'}`}
+          onClick={() => { if (!disabled) setIsOpen(!isOpen); }}
+          className={`w-full px-3.5 py-2.5 border rounded-xl text-sm flex items-center justify-between transition-all min-h-touch ${disabled ? 'bg-slate-50 border-slate-200 text-slate-500 cursor-not-allowed' : isOpen ? 'bg-white border-blue-500 ring-2 ring-blue-500/20 text-slate-900 cursor-pointer' : 'bg-white border-slate-300 text-slate-900 hover:border-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 cursor-pointer'}`}
         >
           <div className="truncate flex-1">
             {selectedCustomer ? (
@@ -112,11 +125,17 @@ export const CustomerCombobox: React.FC<CustomerComboboxProps> = ({
               <span className="text-slate-500">-- Choose Customer --</span>
             )}
           </div>
-          <ChevronDown size={16} className="text-slate-400 shrink-0 ml-2" />
+          <ChevronDown size={16} className={`text-slate-400 shrink-0 ml-2 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
         </div>
-      ) : (
-        <div className="w-full bg-white border border-slate-300 rounded-xl shadow-lg z-50 overflow-hidden absolute top-0 left-0">
-          <div className="p-2 border-b border-slate-100 flex items-center bg-slate-50">
+      </div>
+
+      {isOpen && createPortal(
+        <div 
+          ref={dropdownRef}
+          className="bg-white border border-slate-300 rounded-xl shadow-2xl flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-100"
+          style={{ ...style, maxWidth: 'calc(100vw - 32px)' }} // ensure it doesn't overflow screen horizontally
+        >
+          <div className="p-2 border-b border-slate-100 flex items-center bg-slate-50 shrink-0">
             <SearchIcon size={16} className="text-slate-400 ml-2 mr-2 shrink-0" />
             <input
               ref={inputRef}
@@ -127,11 +146,11 @@ export const CustomerCombobox: React.FC<CustomerComboboxProps> = ({
                 setHighlightedIndex(0);
               }}
               onKeyDown={handleKeyDown}
-              placeholder="Search customer by name, Arabic name, or phone..."
+              placeholder="Search customer..."
               className="w-full bg-transparent border-none text-sm focus:outline-none focus:ring-0 py-1"
             />
           </div>
-          <div className="max-h-60 overflow-y-auto py-1">
+          <div className="overflow-y-auto custom-scrollbar touch-scroll flex-1 py-1">
             {filtered.length === 0 ? (
               <div className="px-4 py-3 text-sm text-slate-500 text-center">No customer found</div>
             ) : (
@@ -143,26 +162,27 @@ export const CustomerCombobox: React.FC<CustomerComboboxProps> = ({
                     setIsOpen(false);
                   }}
                   onMouseEnter={() => setHighlightedIndex(idx)}
-                  className={`px-4 py-2 cursor-pointer flex justify-between items-center ${highlightedIndex === idx ? 'bg-blue-50' : 'hover:bg-slate-50'} ${value === c.id ? 'bg-blue-50/50' : ''}`}
+                  className={`px-4 py-2 cursor-pointer flex justify-between items-center min-h-touch ${highlightedIndex === idx ? 'bg-blue-50' : 'hover:bg-slate-50'} ${value === c.id ? 'bg-blue-50/50' : ''}`}
                 >
-                  <div>
-                    <div className="font-bold text-slate-900 text-sm">
+                  <div className="min-w-0 pr-4">
+                    <div className="font-bold text-slate-900 text-sm truncate">
                       {c.name} {c.nameAr && <span className="font-arabic font-normal text-slate-500 ml-1">({c.nameAr})</span>}
                     </div>
                     {c.phone && <div className="text-xs text-slate-500 mt-0.5">{c.phone}</div>}
                   </div>
-                  <div className="text-right shrink-0 ml-4 flex items-center justify-end">
-                    <div className={`text-xs font-bold ${Number(c.totalOutstandingKd) > 0 ? 'text-amber-700' : 'text-slate-400'} mr-2`}>
-                      Outstanding: KD {Number(c.totalOutstandingKd).toFixed(3)}
+                  <div className="text-right shrink-0 flex items-center justify-end">
+                    <div className={`text-xs font-bold ${Number(c.totalOutstandingKd) > 0 ? 'text-amber-700' : 'text-slate-400'} ${value === c.id ? 'mr-2' : ''} whitespace-nowrap`}>
+                      KD {Number(c.totalOutstandingKd).toFixed(3)}
                     </div>
-                    {value === c.id && <Check size={16} className="text-blue-600" />}
+                    {value === c.id && <Check size={16} className="text-blue-600 shrink-0" />}
                   </div>
                 </div>
               ))
             )}
           </div>
-        </div>
+        </div>,
+        document.body
       )}
-    </div>
+    </>
   );
 };

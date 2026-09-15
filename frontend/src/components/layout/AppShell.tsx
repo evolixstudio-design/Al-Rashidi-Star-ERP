@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import { useLegalHelp } from '../../context/LegalHelpContext';
 import { AppFooter } from '../common/AppFooter';
+import { useBodyScrollLock } from '../../hooks/useBodyScrollLock';
 
 export const AppShell: React.FC = () => {
   const { user, logout } = useAuth();
@@ -33,6 +34,8 @@ export const AppShell: React.FC = () => {
   const navigate = useNavigate();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+
+  useBodyScrollLock(mobileMenuOpen || showLogoutConfirm);
 
   const navItems = [
     { to: '/', label: t.nav.home, icon: Home },
@@ -145,7 +148,7 @@ export const AppShell: React.FC = () => {
       </header>
 
       {/* Main Layout Body */}
-      <div className="flex-1 flex overflow-hidden">
+      <div className="flex-1 flex overflow-x-hidden">
         {/* Fixed Left Sidebar (Desktop) - High contrast & professional density */}
         <aside className="hidden lg:flex lg:flex-col w-60 bg-slate-900 text-slate-200 border-r border-slate-700/80 select-none">
           <div className="p-3 flex-1 overflow-y-auto space-y-1">
@@ -225,7 +228,7 @@ export const AppShell: React.FC = () => {
               className="fixed inset-0 bg-slate-950/70 backdrop-blur-xs"
               onClick={() => setMobileMenuOpen(false)}
             ></div>
-            <div className="relative flex-1 flex flex-col max-w-xs w-full bg-slate-900 text-white p-4 z-50 shadow-2xl border-r border-slate-700">
+            <div className="relative flex-1 flex flex-col max-w-xs w-full bg-slate-900 text-white p-4 pb-safe z-50 shadow-2xl border-r border-slate-700">
               <div className="flex items-center justify-between pb-3 border-b border-slate-800">
                 <span className="font-bold text-sm text-white">{t.nav.menu}</span>
                 <button

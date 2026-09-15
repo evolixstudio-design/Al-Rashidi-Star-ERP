@@ -2,8 +2,11 @@ export interface TemporaryCatalogueProduct {
   id: string;
   imageObjUrl: string;
   name: string;
-  articleNo: string;
-  wholesalePrice: number;
+  articleNo?: string;
+  wholesalePrice?: number;
+  size?: string;
+  colour?: string;
+  quality?: string;
 }
 
 export function chunkProducts(products: TemporaryCatalogueProduct[], size: number): TemporaryCatalogueProduct[][] {

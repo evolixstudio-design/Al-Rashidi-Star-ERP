@@ -81,6 +81,22 @@
   .press-scale:active {
     transform: scale(0.98);
   }
+
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom, 16px);
+  }
+  .pt-safe {
+    padding-top: env(safe-area-inset-top, 16px);
+  }
+  .min-h-touch {
+    min-height: 44px;
+  }
+  .no-scroll {
+    overflow: hidden;
+  }
+  .touch-scroll {
+    -webkit-overflow-scrolling: touch;
+  }
 }
 
 @layer components {
