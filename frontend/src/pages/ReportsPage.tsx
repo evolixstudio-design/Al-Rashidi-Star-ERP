@@ -180,7 +180,7 @@ export const ReportsPage: React.FC = () => {
       ]);
     } else if (activeTab === 'stock' && stockData) {
       if (stockData.items && stockData.items.length > 0) {
-        headers = ['Article #', 'Product Name', 'In Stock', 'Cost Price (KD)', 'Selling Price (KD)', 'Valuation (KD)'];
+        headers = ['Article #', 'Product Name', 'In Stock', 'Cost Price/Doz (KD)', 'Selling Price/Doz (KD)', 'Valuation (KD)'];
         rows = stockData.items.map((i: any) => [
           i.articleNumber || '',
           i.productName || i.nameEn || '',
@@ -783,7 +783,7 @@ export const ReportsPage: React.FC = () => {
                         </div>
                         <div>
                           <span className="text-slate-500 block mb-0.5">Selling Price</span>
-                          <span className="font-mono text-emerald-700 font-bold">KD {Number(item.sellingPriceKd || 0).toFixed(3)}</span>
+                          <span className="font-mono text-emerald-700 font-bold">KD {Number(item.sellingPriceKd || 0).toFixed(3)}/Doz</span>
                         </div>
                       </div>
                     </div>

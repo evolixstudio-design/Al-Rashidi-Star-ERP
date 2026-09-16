@@ -234,7 +234,7 @@ export const CatalogueProductForm: React.FC<CatalogueProductFormProps> = ({
             optional
           />
           <InputField
-            label="Wholesale Price"
+            label="Wholesale Price/Doz"
             value={priceStr}
             onChange={setPriceStr}
             placeholder="0.000"

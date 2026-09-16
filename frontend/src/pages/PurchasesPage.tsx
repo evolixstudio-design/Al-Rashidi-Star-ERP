@@ -1148,7 +1148,7 @@ export const PurchasesPage: React.FC = () => {
                                 <th className="py-2.5 px-3">{lang === 'hi' ? 'Product Naam' : 'Product Name'}</th>
                                 <th className="py-2.5 px-3 text-right">Dozen + Pcs</th>
                                 <th className="py-2.5 px-3 text-right">Total Pcs</th>
-                                <th className="py-2.5 px-3 text-right">Cost (K.D.)</th>
+                                <th className="py-2.5 px-3 text-right">Cost/Doz (K.D.)</th>
                                 <th className="py-2.5 px-3 text-right">Line Total (K.D.)</th>
                                 <th className="py-2.5 px-3 text-center">Action</th>
                               </tr>
@@ -1226,7 +1226,7 @@ export const PurchasesPage: React.FC = () => {
                               </div>
 
                               <div className="flex items-center justify-between text-sm border-t border-slate-100 pt-2 mt-2">
-                                <div className="text-slate-600">Cost: <span className="font-medium text-slate-900">{Number(item.unitCostKd).toFixed(3)} KD</span></div>
+                                <div className="text-slate-600">Cost/Doz: <span className="font-medium text-slate-900">{Number(item.unitCostKd).toFixed(3)} KD</span></div>
                                 <button
                                   type="button"
                                   onClick={() => handleRemoveLine(idx)}

@@ -1183,7 +1183,7 @@ export const HomePage: React.FC = () => {
                         <span className="font-bold text-slate-900 text-xs">{prod.nameEn}</span>
                       </div>
                       <div className="text-[11px] text-slate-400 mt-0.5">
-                        Selling: KD {prod.sellingPriceKd.toFixed(3)} • Reorder at {prod.reorderLevelPcs} Pcs
+                        Selling: KD {prod.sellingPriceKd.toFixed(3)}/Doz • Reorder at {prod.reorderLevelPcs} Pcs
                       </div>
                     </div>
 

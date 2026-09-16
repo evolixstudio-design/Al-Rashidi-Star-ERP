@@ -30,7 +30,7 @@ const FAQ_DATA: FaqItem[] = [
     category: 'Sales & Invoicing',
     question: 'How do Dozen and Pieces calculations work in the ERP?',
     answer:
-      'In Kuwait wholesale trading, items are handled in Dozens (1 Dozen = 12 Pieces). When creating invoices or recording purchases, you can enter quantities in both Dozen and individual Pieces. The system automatically computes Total Pieces = (Dozens × 12) + Pieces, and calculates the unit price per piece as (Dozen Price / 12).',
+      'In Kuwait wholesale trading, items are handled in Dozens (1 Dozen = 12 Pieces). When creating invoices or recording purchases, you can enter quantities in both Dozen and individual Pieces. The system automatically computes Total Pieces = (Dozens × 12) + Pieces. All prices (purchase and selling) are always per Dozen. When selling partial dozens (e.g. 1 Doz 6 Pcs = 1.5 Doz), the line total is calculated as DozQty × Price per Dozen.',
   },
   {
     id: 'whatsapp-sharing',

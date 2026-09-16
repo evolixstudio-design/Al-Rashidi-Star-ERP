@@ -391,7 +391,7 @@ export const StockPage: React.FC = () => {
                       {p.stockBreakdown.totalPcs}
                     </td>
                     <td className="py-2.5 px-3 text-right hidden lg:table-cell font-mono text-slate-900">
-                      {p.sellingPrice.toFixed(3)} K.D.
+                      {p.sellingPrice.toFixed(3)} K.D./Doz
                     </td>
                     <td className="py-2.5 px-3 text-center">{statusBadge(p.status)}</td>
                     <td className="py-2.5 px-3">
@@ -484,9 +484,9 @@ export const StockPage: React.FC = () => {
                   <div className="text-xs font-mono text-slate-500">{p.stockBreakdown.totalPcs} total pcs</div>
                 </div>
                 <div className="text-right">
-                  <div className="text-[10px] uppercase font-bold text-slate-400 mb-0.5">Selling Price</div>
+                  <div className="text-[10px] uppercase font-bold text-slate-400 mb-0.5">Selling Price/Doz</div>
                   <div className="font-bold text-slate-900 font-mono">
-                    {p.sellingPrice.toFixed(3)} <span className="text-[10px] text-slate-500 font-sans">K.D.</span>
+                    {p.sellingPrice.toFixed(3)} <span className="text-[10px] text-slate-500 font-sans">K.D./Doz</span>
                   </div>
                 </div>
               </div>

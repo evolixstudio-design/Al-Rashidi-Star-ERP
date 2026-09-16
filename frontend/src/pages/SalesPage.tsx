@@ -47,7 +47,7 @@ interface ProductOption {
   currentStockPcs: number;
   currentStockDozen?: number;
   currentStockRemainderPcs?: number;
-  sellingPriceKd: number;
+  sellingPrice: number;
   hasImage?: boolean;
   imageUpdatedAt?: string | null;
 }
@@ -291,7 +291,7 @@ export const SalesPage: React.FC = () => {
     if (prodId) {
       const p = products.find((prod) => prod.id === Number(prodId));
       if (p) {
-        setInputUnitPrice(Number(p.sellingPriceKd) || 0);
+        setInputUnitPrice(Number(p.sellingPrice) || 0);
       }
     } else {
       setInputUnitPrice('');
