@@ -219,7 +219,7 @@ const LegacyPageFrame: React.FC<{
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/><circle cx="12" cy="9" r="2.5"/></svg>
                 </div>
                 <div style={{ fontFamily: "'Inter', sans-serif", fontSize: '11px', color: '#0c2340', lineHeight: 1.4 }}>
-                  <span style={{ fontWeight: 800 }}>Souk Al-Fahad</span><br/>Opp. Masjid Al-Fahad - Shop No. 36<br/>Kuwait
+                  <span style={{ fontWeight: 800 }}>Souk Al-Fahad</span><br/>Opp. Masjid Al-Fahad - Shop No. 35<br/>Kuwait
                 </div>
               </div>
 
@@ -804,7 +804,7 @@ export const CataloguePages = forwardRef<HTMLDivElement, CataloguePagesProps>(
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/><circle cx="12" cy="9" r="2.5"/></svg>
               </div>
               <div style={{ fontFamily: "'Inter', sans-serif", fontSize: '15px', color: '#0c2340', lineHeight: 1.5 }}>
-                <span style={{ fontWeight: 800 }}>RASHIDI STAR</span><br/>General Trading Co.<br/>Souk Al-Fahad<br/>Opp. Masjid Al-Fahad - Shop No. 36<br/>Kuwait
+                <span style={{ fontWeight: 800 }}>RASHIDI STAR</span><br/>General Trading Co.<br/>Souk Al-Fahad<br/>Opp. Masjid Al-Fahad - Shop No. 35<br/>Kuwait
               </div>
             </div>
 

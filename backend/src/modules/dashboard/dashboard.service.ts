@@ -9,9 +9,19 @@ import { Product } from '../../database/entities/product.entity.js';
 import { Customer } from '../../database/entities/customer.entity.js';
 import { CustomerReceipt } from '../../database/entities/customer-receipt.entity.js';
 import { Expense } from '../../database/entities/expense.entity.js';
+import { SalesReturn } from '../../database/entities/sales-return.entity.js';
+import { SalesReturnLine } from '../../database/entities/sales-return-line.entity.js';
 
 @Injectable()
 export class DashboardService {
+  private summaryCache: { data: any; expiry: number } | null = null;
+  private trendsCache = new Map<string, { data: any; expiry: number }>();
+
+  public clearCache() {
+    this.summaryCache = null;
+    this.trendsCache.clear();
+  }
+
   constructor(
     @InjectRepository(SalesInvoice)
     private readonly invoiceRepo: Repository<SalesInvoice>,
@@ -32,165 +42,173 @@ export class DashboardService {
   ) {}
 
   /**
-   * 1. Core Summary Metrics
+   * 1. Core Summary Metrics (Parallel execution + SQL aggregations + Fast Cache)
    */
   async getSummary() {
+    const nowMs = Date.now();
+    if (this.summaryCache && this.summaryCache.expiry > nowMs) {
+      return this.summaryCache.data;
+    }
+
     const today = new Date().toISOString().split('T')[0];
     const currentMonthPrefix = today.substring(0, 7); // YYYY-MM
     const monthStart = `${currentMonthPrefix}-01`;
 
-    // 1. Today's Sales
-    const todaySalesRaw = await this.invoiceRepo
-      .createQueryBuilder('inv')
-      .select('SUM(inv.totalAmountKd)', 'total')
-      .addSelect('COUNT(inv.id)', 'count')
-      .where('inv.status = :status', { status: 'POSTED' })
-      .andWhere('inv.invoiceDate = :today', { today })
-      .getRawOne();
+    const [
+      todaySalesRaw,
+      todayReturnsRaw,
+      pendingCustomersRaw,
+      stockValRaw,
+      stockOutRaw,
+      stockInRaw,
+      monthExpensesRaw,
+      monthSalesRaw,
+      monthReturnsRaw,
+      monthCogsRaw,
+      monthReturnedCogsRaw,
+      monthPurchasesRaw,
+    ] = await Promise.all([
+      // 1. Today's Sales
+      this.invoiceRepo
+        .createQueryBuilder('inv')
+        .select('COALESCE(SUM(inv.totalAmountKd), 0)', 'total')
+        .addSelect('COUNT(inv.id)', 'count')
+        .where('inv.status = :status', { status: 'POSTED' })
+        .andWhere('inv.invoiceDate = :today', { today })
+        .getRawOne(),
+
+      // 2. Today's Returns
+      this.invoiceRepo.manager
+        .createQueryBuilder(SalesReturn, 'sr')
+        .select('COALESCE(SUM(sr.totalReturnAmountKd), 0)', 'total')
+        .where('sr.status = :status', { status: 'POSTED' })
+        .andWhere('sr.returnDate = :today', { today })
+        .getRawOne(),
+
+      // 3. Pending Payments (Total Outstanding from Customers)
+      this.customerRepo
+        .createQueryBuilder('cust')
+        .select('COALESCE(SUM(cust.totalOutstanding), 0)', 'total')
+        .addSelect('COUNT(cust.id)', 'count')
+        .where('cust.totalOutstanding > 0')
+        .getRawOne(),
+
+      // 4. Stock Valuation & Total Stock (SQL-aggregated)
+      this.productRepo
+        .createQueryBuilder('p')
+        .select('COALESCE(SUM(p.currentStockPcs), 0)', 'totalPcs')
+        .addSelect('COALESCE(SUM((p.currentStockPcs / 12.0) * p.purchasePrice), 0)', 'totalValuation')
+        .getRawOne(),
+
+      // 5. Stock Out Today
+      this.invoiceLineRepo
+        .createQueryBuilder('line')
+        .innerJoin('line.invoice', 'inv')
+        .select('COALESCE(SUM(line.totalPcs), 0)', 'totalPcs')
+        .where('inv.status = :status', { status: 'POSTED' })
+        .andWhere('inv.invoiceDate = :today', { today })
+        .getRawOne(),
+
+      // 6. Stock Received Today
+      this.purchaseLineRepo
+        .createQueryBuilder('line')
+        .innerJoin('line.receipt', 'rec')
+        .select('COALESCE(SUM(line.totalPcs), 0)', 'totalPcs')
+        .where('rec.receiptDate = :today', { today })
+        .getRawOne(),
+
+      // 7. This Month Expenses
+      this.expenseRepo
+        .createQueryBuilder('exp')
+        .select('COALESCE(SUM(exp.amountKd), 0)', 'total')
+        .addSelect('COUNT(exp.id)', 'count')
+        .where("exp.status != 'CANCELLED'")
+        .andWhere('exp.expenseDate >= :monthStart', { monthStart })
+        .andWhere('exp.expenseDate <= :today', { today })
+        .getRawOne(),
+
+      // 8. This Month Sales
+      this.invoiceRepo
+        .createQueryBuilder('inv')
+        .select('COALESCE(SUM(inv.totalAmountKd), 0)', 'total')
+        .where('inv.status = :status', { status: 'POSTED' })
+        .andWhere('inv.invoiceDate >= :monthStart', { monthStart })
+        .andWhere('inv.invoiceDate <= :today', { today })
+        .getRawOne(),
+
+      // 9. This Month Returns
+      this.invoiceRepo.manager
+        .createQueryBuilder(SalesReturn, 'sr')
+        .select('COALESCE(SUM(sr.totalReturnAmountKd), 0)', 'total')
+        .where('sr.status = :status', { status: 'POSTED' })
+        .andWhere('sr.returnDate >= :monthStart', { monthStart })
+        .andWhere('sr.returnDate <= :today', { today })
+        .getRawOne(),
+
+      // 10. Month COGS (SQL-aggregated)
+      this.invoiceLineRepo
+        .createQueryBuilder('line')
+        .innerJoin('line.invoice', 'inv')
+        .innerJoin('line.product', 'prod')
+        .select('COALESCE(SUM((line.totalPcs / 12.0) * prod.purchasePrice), 0)', 'cogs')
+        .where('inv.status = :status', { status: 'POSTED' })
+        .andWhere('inv.invoiceDate >= :monthStart', { monthStart })
+        .andWhere('inv.invoiceDate <= :today', { today })
+        .getRawOne(),
+
+      // 11. Month Returned COGS (SQL-aggregated)
+      this.invoiceRepo.manager
+        .createQueryBuilder(SalesReturnLine, 'srl')
+        .innerJoin('srl.salesReturn', 'sr')
+        .innerJoin('srl.product', 'prod')
+        .select('COALESCE(SUM((srl.returnTotalPcs / 12.0) * prod.purchasePrice), 0)', 'returnedCogs')
+        .where('sr.status = :status', { status: 'POSTED' })
+        .andWhere('sr.returnDate >= :monthStart', { monthStart })
+        .andWhere('sr.returnDate <= :today', { today })
+        .getRawOne(),
+
+      // 12. Purchases This Month
+      this.purchaseRepo
+        .createQueryBuilder('rec')
+        .select('COALESCE(SUM(rec.totalAmountKd), 0)', 'totalAmount')
+        .addSelect('COALESCE(SUM(rec.totalPcs), 0)', 'totalPcs')
+        .addSelect('COUNT(rec.id)', 'count')
+        .where('rec.receiptDate >= :monthStart', { monthStart })
+        .andWhere('rec.receiptDate <= :today', { today })
+        .getRawOne(),
+    ]);
 
     const todaySalesKd = Number(todaySalesRaw?.total || 0);
     const todayInvoiceCount = Number(todaySalesRaw?.count || 0);
-
-    const { SalesReturn } = await import('../../database/entities/sales-return.entity.js');
-    const todayReturnsRaw = await this.invoiceRepo.manager
-      .createQueryBuilder(SalesReturn, 'sr')
-      .select('SUM(sr.totalReturnAmountKd)', 'total')
-      .where('sr.status = :status', { status: 'POSTED' })
-      .andWhere('sr.returnDate = :today', { today })
-      .getRawOne();
-      
     const todayReturnsKd = Number(todayReturnsRaw?.total || 0);
     const todayNetSalesKd = todaySalesKd - todayReturnsKd;
-
-    // 2. Pending Payments (Total Outstanding from Customers)
-    const pendingCustomersRaw = await this.customerRepo
-      .createQueryBuilder('cust')
-      .select('SUM(cust.totalOutstanding)', 'total')
-      .addSelect('COUNT(cust.id)', 'count')
-      .where('cust.totalOutstanding > 0')
-      .getRawOne();
 
     const pendingPaymentsKd = Number(pendingCustomersRaw?.total || 0);
     const pendingCustomerCount = Number(pendingCustomersRaw?.count || 0);
 
-    // 3. Stock Valuation & Total Stock (Exact same formula as Reports Stock Valuation)
-    const products = await this.productRepo.find();
-    let totalStockPcs = 0;
-    let totalStockValuationKd = 0;
-
-    for (const p of products) {
-      const pcs = Number(p.currentStockPcs) || 0;
-      const costPerDozen = Number(p.purchasePrice) || 0;
-      totalStockPcs += pcs;
-      totalStockValuationKd += (pcs / 12) * costPerDozen;
-    }
-
-    // 4. Stock Out Today (Genuine sales deductions today)
-    const stockOutRaw = await this.invoiceLineRepo
-      .createQueryBuilder('line')
-      .innerJoin('line.invoice', 'inv')
-      .select('SUM(line.totalPcs)', 'totalPcs')
-      .where('inv.status = :status', { status: 'POSTED' })
-      .andWhere('inv.invoiceDate = :today', { today })
-      .getRawOne();
+    const totalStockPcs = Number(stockValRaw?.totalPcs || 0);
+    const totalStockValuationKd = Number(stockValRaw?.totalValuation || 0);
 
     const stockOutTodayPcs = Number(stockOutRaw?.totalPcs || 0);
-
-    // 5. Stock Received Today
-    const stockInRaw = await this.purchaseLineRepo
-      .createQueryBuilder('line')
-      .innerJoin('line.receipt', 'rec')
-      .select('SUM(line.totalPcs)', 'totalPcs')
-      .where('rec.receiptDate = :today', { today })
-      .getRawOne();
-
     const stockReceivedTodayPcs = Number(stockInRaw?.totalPcs || 0);
-
-    // 6. This Month Expenses
-    const monthExpensesRaw = await this.expenseRepo
-      .createQueryBuilder('exp')
-      .select('SUM(exp.amountKd)', 'total')
-      .addSelect('COUNT(exp.id)', 'count')
-      .where("exp.status != 'CANCELLED'")
-      .andWhere('exp.expenseDate >= :monthStart', { monthStart })
-      .andWhere('exp.expenseDate <= :today', { today })
-      .getRawOne();
 
     const thisMonthExpensesKd = Number(monthExpensesRaw?.total || 0);
     const thisMonthExpensesCount = Number(monthExpensesRaw?.count || 0);
 
-    // 7. This Month Profit & Loss (Same exact source of truth as Reports P&L)
-    const monthSalesRaw = await this.invoiceRepo
-      .createQueryBuilder('inv')
-      .select('SUM(inv.totalAmountKd)', 'total')
-      .where('inv.status = :status', { status: 'POSTED' })
-      .andWhere('inv.invoiceDate >= :monthStart', { monthStart })
-      .andWhere('inv.invoiceDate <= :today', { today })
-      .getRawOne();
-
     const monthSalesRevenueKd = Number(monthSalesRaw?.total || 0);
-
-    const monthReturnsRaw = await this.invoiceRepo.manager
-      .createQueryBuilder(SalesReturn, 'sr')
-      .select('SUM(sr.totalReturnAmountKd)', 'total')
-      .where('sr.status = :status', { status: 'POSTED' })
-      .andWhere('sr.returnDate >= :monthStart', { monthStart })
-      .andWhere('sr.returnDate <= :today', { today })
-      .getRawOne();
-      
     const monthReturnsKd = Number(monthReturnsRaw?.total || 0);
     const monthNetSalesRevenueKd = monthSalesRevenueKd - monthReturnsKd;
 
-    // COGS for lines of posted invoices this month
-    const monthCogsLines = await this.invoiceLineRepo
-      .createQueryBuilder('line')
-      .innerJoin('line.invoice', 'inv')
-      .innerJoinAndSelect('line.product', 'prod')
-      .where('inv.status = :status', { status: 'POSTED' })
-      .andWhere('inv.invoiceDate >= :monthStart', { monthStart })
-      .andWhere('inv.invoiceDate <= :today', { today })
-      .getMany();
-
-    let monthCogsKd = 0;
-    for (const line of monthCogsLines) {
-      const pcs = Number(line.totalPcs) || 0;
-      const costPerDozen = Number(line.product?.purchasePrice) || 0;
-      monthCogsKd += (pcs / 12) * costPerDozen;
-    }
-
-    const { SalesReturnLine } = await import('../../database/entities/sales-return-line.entity.js');
-    const monthReturnedCogsLines = await this.invoiceRepo.manager
-      .createQueryBuilder(SalesReturnLine, 'srl')
-      .innerJoin('srl.salesReturn', 'sr')
-      .innerJoinAndSelect('srl.product', 'prod')
-      .where('sr.status = :status', { status: 'POSTED' })
-      .andWhere('sr.returnDate >= :monthStart', { monthStart })
-      .andWhere('sr.returnDate <= :today', { today })
-      .getMany();
-      
-    let monthReturnedCogsKd = 0;
-    for (const line of monthReturnedCogsLines) {
-       monthReturnedCogsKd += (Number(line.returnTotalPcs || 0) / 12) * Number(line.product?.purchasePrice || 0);
-    }
-
+    const monthCogsKd = Number(monthCogsRaw?.cogs || 0);
+    const monthReturnedCogsKd = Number(monthReturnedCogsRaw?.returnedCogs || 0);
     const monthNetCogsKd = monthCogsKd - monthReturnedCogsKd;
     const monthGrossProfitKd = monthNetSalesRevenueKd - monthNetCogsKd;
     const monthNetProfitKd = monthGrossProfitKd - thisMonthExpensesKd;
 
-    // 8. Purchases This Month
-    const monthPurchasesRaw = await this.purchaseRepo
-      .createQueryBuilder('rec')
-      .select('SUM(rec.totalAmountKd)', 'totalAmount')
-      .addSelect('SUM(rec.totalPcs)', 'totalPcs')
-      .addSelect('COUNT(rec.id)', 'count')
-      .where('rec.receiptDate >= :monthStart', { monthStart })
-      .andWhere('rec.receiptDate <= :today', { today })
-      .getRawOne();
-
     const monthPurchasesKd = Number(monthPurchasesRaw?.totalAmount || 0);
     const monthPurchasesPcs = Number(monthPurchasesRaw?.totalPcs || 0);
 
-    return {
+    const result = {
       todaySales: {
         amountKd: Number(todayNetSalesKd.toFixed(3)),
         invoiceCount: todayInvoiceCount,
@@ -234,12 +252,21 @@ export class DashboardService {
         pieces: monthPurchasesPcs % 12,
       },
     };
+
+    this.summaryCache = { data: result, expiry: nowMs + 15000 };
+    return result;
   }
 
   /**
-   * 2. Sales & Profit Trends Chart
+   * 2. Sales & Profit Trends Chart (Parallel queries + Cache)
    */
   async getTrends(period: string = '7d') {
+    const nowMs = Date.now();
+    const cached = this.trendsCache.get(period);
+    if (cached && cached.expiry > nowMs) {
+      return cached.data;
+    }
+
     const now = new Date();
     const todayStr = now.toISOString().split('T')[0];
     let fromDateStr = todayStr;
@@ -258,51 +285,47 @@ export class DashboardService {
       fromDateStr = `${now.getFullYear()}-01-01`;
     }
 
-    // Load posted invoices in range
-    const invoices = await this.invoiceRepo
-      .createQueryBuilder('inv')
-      .where('inv.status = :status', { status: 'POSTED' })
-      .andWhere('inv.invoiceDate >= :fromDate', { fromDate: fromDateStr })
-      .andWhere('inv.invoiceDate <= :toDate', { toDate: todayStr })
-      .getMany();
+    // Load posted invoices, returns, lines, returnLines, and expenses IN PARALLEL
+    const [invoices, returns, invoiceLines, returnLines, expenses] = await Promise.all([
+      this.invoiceRepo
+        .createQueryBuilder('inv')
+        .where('inv.status = :status', { status: 'POSTED' })
+        .andWhere('inv.invoiceDate >= :fromDate', { fromDate: fromDateStr })
+        .andWhere('inv.invoiceDate <= :toDate', { toDate: todayStr })
+        .getMany(),
 
-    // Load posted returns in range
-    const { SalesReturn } = await import('../../database/entities/sales-return.entity.js');
-    const returns = await this.invoiceRepo.manager
-      .createQueryBuilder(SalesReturn, 'sr')
-      .where('sr.status = :status', { status: 'POSTED' })
-      .andWhere('sr.returnDate >= :fromDate', { fromDate: fromDateStr })
-      .andWhere('sr.returnDate <= :toDate', { toDate: todayStr })
-      .getMany();
+      this.invoiceRepo.manager
+        .createQueryBuilder(SalesReturn, 'sr')
+        .where('sr.status = :status', { status: 'POSTED' })
+        .andWhere('sr.returnDate >= :fromDate', { fromDate: fromDateStr })
+        .andWhere('sr.returnDate <= :toDate', { toDate: todayStr })
+        .getMany(),
 
-    // Load invoice lines in range for COGS
-    const invoiceLines = await this.invoiceLineRepo
-      .createQueryBuilder('line')
-      .innerJoin('line.invoice', 'inv')
-      .innerJoinAndSelect('line.product', 'prod')
-      .where('inv.status = :status', { status: 'POSTED' })
-      .andWhere('inv.invoiceDate >= :fromDate', { fromDate: fromDateStr })
-      .andWhere('inv.invoiceDate <= :toDate', { toDate: todayStr })
-      .getMany();
+      this.invoiceLineRepo
+        .createQueryBuilder('line')
+        .innerJoin('line.invoice', 'inv')
+        .innerJoinAndSelect('line.product', 'prod')
+        .where('inv.status = :status', { status: 'POSTED' })
+        .andWhere('inv.invoiceDate >= :fromDate', { fromDate: fromDateStr })
+        .andWhere('inv.invoiceDate <= :toDate', { toDate: todayStr })
+        .getMany(),
 
-    // Load return lines in range for COGS
-    const { SalesReturnLine } = await import('../../database/entities/sales-return-line.entity.js');
-    const returnLines = await this.invoiceRepo.manager
-      .createQueryBuilder(SalesReturnLine, 'srl')
-      .innerJoin('srl.salesReturn', 'sr')
-      .innerJoinAndSelect('srl.product', 'prod')
-      .where('sr.status = :status', { status: 'POSTED' })
-      .andWhere('sr.returnDate >= :fromDate', { fromDate: fromDateStr })
-      .andWhere('sr.returnDate <= :toDate', { toDate: todayStr })
-      .getMany();
+      this.invoiceRepo.manager
+        .createQueryBuilder(SalesReturnLine, 'srl')
+        .innerJoin('srl.salesReturn', 'sr')
+        .innerJoinAndSelect('srl.product', 'prod')
+        .where('sr.status = :status', { status: 'POSTED' })
+        .andWhere('sr.returnDate >= :fromDate', { fromDate: fromDateStr })
+        .andWhere('sr.returnDate <= :toDate', { toDate: todayStr })
+        .getMany(),
 
-    // Load expenses in range
-    const expenses = await this.expenseRepo
-      .createQueryBuilder('exp')
-      .where("exp.status != 'CANCELLED'")
-      .andWhere('exp.expenseDate >= :fromDate', { fromDate: fromDateStr })
-      .andWhere('exp.expenseDate <= :toDate', { toDate: todayStr })
-      .getMany();
+      this.expenseRepo
+        .createQueryBuilder('exp')
+        .where("exp.status != 'CANCELLED'")
+        .andWhere('exp.expenseDate >= :fromDate', { fromDate: fromDateStr })
+        .andWhere('exp.expenseDate <= :toDate', { toDate: todayStr })
+        .getMany(),
+    ]);
 
     // Build timeline points
     if (period === 'thisYear') {
@@ -313,7 +336,7 @@ export class DashboardService {
       ];
       const year = now.getFullYear();
 
-      return months.map((mName, idx) => {
+      const result = months.map((mName, idx) => {
         const monthNum = String(idx + 1).padStart(2, '0');
         const prefix = `${year}-${monthNum}`;
 
@@ -349,6 +372,9 @@ export class DashboardService {
           profitKd: Number(profitKd.toFixed(3)),
         };
       });
+
+      this.trendsCache.set(period, { data: result, expiry: nowMs + 30000 });
+      return result;
     }
 
     // Daily aggregation for 7d, 30d, thisMonth
@@ -395,6 +421,7 @@ export class DashboardService {
       current.setDate(current.getDate() + 1);
     }
 
+    this.trendsCache.set(period, { data: points, expiry: nowMs + 30000 });
     return points;
   }
 
@@ -486,35 +513,30 @@ export class DashboardService {
   }
 
   /**
-   * 5. Recent Business Transactions (Unified Business Activity Feed)
+   * 5. Recent Business Transactions (Unified Business Activity Feed - Parallel)
    */
   async getRecentTransactions(limit: number = 10) {
-    // 1. Invoices
-    const invoices = await this.invoiceRepo.find({
-      relations: { customer: true },
-      order: { createdAt: 'DESC' },
-      take: limit,
-    });
-
-    // 2. Receipts
-    const receipts = await this.receiptRepo.find({
-      relations: { customer: true },
-      order: { createdAt: 'DESC' },
-      take: limit,
-    });
-
-    // 3. Purchases
-    const purchases = await this.purchaseRepo.find({
-      relations: { supplier: true },
-      order: { createdAt: 'DESC' },
-      take: limit,
-    });
-
-    // 4. Expenses
-    const expenses = await this.expenseRepo.find({
-      order: { createdAt: 'DESC' },
-      take: limit,
-    });
+    const [invoices, receipts, purchases, expenses] = await Promise.all([
+      this.invoiceRepo.find({
+        relations: { customer: true },
+        order: { createdAt: 'DESC' },
+        take: limit,
+      }),
+      this.receiptRepo.find({
+        relations: { customer: true },
+        order: { createdAt: 'DESC' },
+        take: limit,
+      }),
+      this.purchaseRepo.find({
+        relations: { supplier: true },
+        order: { createdAt: 'DESC' },
+        take: limit,
+      }),
+      this.expenseRepo.find({
+        order: { createdAt: 'DESC' },
+        take: limit,
+      }),
+    ]);
 
     const feed: any[] = [];
 

@@ -68,9 +68,16 @@ export const LoginPage: React.FC = () => {
       await login(selectedUsername, password);
       navigate('/', { replace: true });
     } catch (err: any) {
-      const msg =
-        err.response?.data?.message ||
-        t.auth.invalidCredentials;
+      let msg = err.response?.data?.message;
+      if (!msg) {
+        if (err.code === 'ECONNABORTED' || err.message?.toLowerCase().includes('timeout')) {
+          msg = 'Connection timeout. Backend server respond nahi kar raha. Kripya dobara try karein.';
+        } else if (err.code === 'ERR_NETWORK' || !err.response) {
+          msg = 'Backend server connect nahi ho pa raha (Offline). Kripya backend server (Port 3000) start karein.';
+        } else {
+          msg = t.auth.invalidCredentials;
+        }
+      }
       setErrorMsg(Array.isArray(msg) ? msg.join(', ') : msg);
     } finally {
       setIsSubmitting(false);

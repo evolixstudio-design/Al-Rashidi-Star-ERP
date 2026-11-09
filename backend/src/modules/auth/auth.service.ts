@@ -20,7 +20,9 @@ export class AuthService {
     if (!user) {
       return null;
     }
-    const isMatch = await bcrypt.compare(pass, user.passwordHash);
+    const rawPass = pass || '';
+    const cleanPass = rawPass.trim();
+    const isMatch = (await bcrypt.compare(rawPass, user.passwordHash)) || (await bcrypt.compare(cleanPass, user.passwordHash));
     if (isMatch) {
       return user;
     }
@@ -48,13 +50,17 @@ export class AuthService {
     const payload = { sub: user.id, username: user.username, role: user.role };
     const accessToken = this.jwtService.sign(payload);
 
-    await this.auditService.log({
-      entityType: 'AUTH',
-      entityId: String(user.id),
-      action: 'LOGIN',
-      performedBy: user.displayName,
-      details: { ip: ipAddress || 'localhost' },
-    });
+    try {
+      await this.auditService.log({
+        entityType: 'AUTH',
+        entityId: String(user.id),
+        action: 'LOGIN',
+        performedBy: user.displayName,
+        details: { ip: ipAddress || 'localhost' },
+      });
+    } catch {
+      // Non-blocking: audit failure should never stop authorized user from entering
+    }
 
     return {
       accessToken,

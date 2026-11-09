@@ -51,7 +51,10 @@ export const ReportsPage: React.FC = () => {
       setError('');
       const params: any = {};
       if (fromDate) params.from = fromDate;
+      else if (activePreset === 'all') params.from = '1970-01-01';
+
       if (toDate) params.to = toDate;
+      else if (activePreset === 'all') params.to = '2099-12-31';
 
       switch (activeTab) {
         case 'sales': {
@@ -126,8 +129,8 @@ export const ReportsPage: React.FC = () => {
       setFromDate(`${year}-01-01`);
       setToDate(todayStr);
     } else if (preset === 'all') {
-      setFromDate('');
-      setToDate('');
+      setFromDate('2020-01-01');
+      setToDate(todayStr);
     }
   };
 
@@ -578,6 +581,31 @@ export const ReportsPage: React.FC = () => {
           {/* TAB 2: PURCHASES REPORT */}
           {activeTab === 'purchases' && purchaseData && (
             <div className="space-y-6">
+              {Number(purchaseData.summary?.totalPurchasesKd ?? purchaseData.metrics?.totalPurchasesKd ?? 0) === 0 && (
+                <div className="bg-amber-50 border border-amber-200 text-amber-900 rounded-xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs shadow-xs">
+                  <div>
+                    <span className="font-bold">No purchase shipments recorded in the selected period ({fromDate || 'Start'} to {toDate || 'Today'}).</span>
+                    <span className="block sm:inline sm:ml-1 text-amber-800">Purchases occurred in earlier months. Click below to view all shipments:</span>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => applyPreset('thisYear')}
+                      className="px-3 py-1.5 bg-amber-700 hover:bg-amber-800 text-white font-semibold rounded-lg shadow-xs transition-colors cursor-pointer"
+                    >
+                      View This Year (2026)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => applyPreset('all')}
+                      className="px-3 py-1.5 bg-white border border-amber-300 hover:bg-amber-100 text-amber-900 font-semibold rounded-lg shadow-xs transition-colors cursor-pointer"
+                    >
+                      View All Time
+                    </button>
+                  </div>
+                </div>
+              )}
+
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="bg-white rounded-xl p-5 border border-slate-200 shadow-xs">
                   <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">

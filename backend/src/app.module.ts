@@ -56,6 +56,12 @@ import { SalesReturnsModule } from './modules/sales-returns/sales-returns.module
 
         return {
           type: 'postgres',
+          extra: {
+            max: 25,
+            min: 3,
+            idleTimeoutMillis: 30000,
+            connectionTimeoutMillis: 10000,
+          },
           ...(databaseUrl
             ? {
                 url: databaseUrl,

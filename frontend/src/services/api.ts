@@ -10,6 +10,7 @@ const baseURL = rawApiUrl
 
 const api = axios.create({
   baseURL,
+  timeout: 15000, // 15s timeout to prevent infinite hanging if backend is offline or slow
   headers: {
     'Content-Type': 'application/json',
   },

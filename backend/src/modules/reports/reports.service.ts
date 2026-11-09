@@ -236,7 +236,7 @@ export class ReportsService {
       totalPcs += pcs;
 
       // Supplier
-      const supName = r.supplier?.name || 'Unknown Supplier';
+      const supName = r.supplier?.name || (r.shipmentContainerNo ? `Shipment (${r.shipmentContainerNo})` : (r.supplierInvoiceRef ? `Invoice #${r.supplierInvoiceRef}` : 'General Supplier'));
       const supId = r.supplierId || 0;
       const sData = supplierMap.get(supName) || {
         supplierId: supId,

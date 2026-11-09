@@ -124,13 +124,50 @@ export const HomePage: React.FC = () => {
 
   const [company, setCompany] = useState<{ nameEn: string; nameAr: string } | null>(null);
   const [currentTime, setCurrentTime] = useState<string>('');
-  const [summary, setSummary] = useState<DashboardSummary | null>(null);
-  const [trends, setTrends] = useState<TrendPoint[]>([]);
+  const [summary, setSummary] = useState<DashboardSummary | null>(() => {
+    try {
+      const saved = sessionStorage.getItem('cached_dashboard_summary');
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
+  const [trends, setTrends] = useState<TrendPoint[]>(() => {
+    try {
+      const saved = sessionStorage.getItem('cached_dashboard_trends');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
   const [trendPeriod, setTrendPeriod] = useState<string>('7d');
-  const [pendingPayments, setPendingPayments] = useState<PendingCustomer[]>([]);
-  const [lowStock, setLowStock] = useState<LowStockItem[]>([]);
-  const [recentTransactions, setRecentTransactions] = useState<RecentTransaction[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
+  const [pendingPayments, setPendingPayments] = useState<PendingCustomer[]>(() => {
+    try {
+      const saved = sessionStorage.getItem('cached_dashboard_pending');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+  const [lowStock, setLowStock] = useState<LowStockItem[]>(() => {
+    try {
+      const saved = sessionStorage.getItem('cached_dashboard_lowstock');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+  const [recentTransactions, setRecentTransactions] = useState<RecentTransaction[]>(() => {
+    try {
+      const saved = sessionStorage.getItem('cached_dashboard_recent');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+  const [loading, setLoading] = useState<boolean>(() => {
+    return !sessionStorage.getItem('cached_dashboard_summary');
+  });
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [hoveredPoint, setHoveredPoint] = useState<TrendPoint | null>(null);
 
@@ -170,17 +207,25 @@ export const HomePage: React.FC = () => {
       ]);
 
       if (compRes.status === 'fulfilled') setCompany(compRes.value.data);
-      if (sumRes.status === 'fulfilled') setSummary(sumRes.value.data);
-      else console.error('Failed to load summary:', sumRes.reason);
+      if (sumRes.status === 'fulfilled') {
+        setSummary(sumRes.value.data);
+        sessionStorage.setItem('cached_dashboard_summary', JSON.stringify(sumRes.value.data));
+      } else console.error('Failed to load summary:', sumRes.reason);
       
-      if (pendingRes.status === 'fulfilled') setPendingPayments(pendingRes.value.data);
-      else console.error('Failed to load pending payments:', pendingRes.reason);
+      if (pendingRes.status === 'fulfilled') {
+        setPendingPayments(pendingRes.value.data);
+        sessionStorage.setItem('cached_dashboard_pending', JSON.stringify(pendingRes.value.data));
+      } else console.error('Failed to load pending payments:', pendingRes.reason);
       
-      if (lowRes.status === 'fulfilled') setLowStock(lowRes.value.data);
-      else console.error('Failed to load low stock:', lowRes.reason);
+      if (lowRes.status === 'fulfilled') {
+        setLowStock(lowRes.value.data);
+        sessionStorage.setItem('cached_dashboard_lowstock', JSON.stringify(lowRes.value.data));
+      } else console.error('Failed to load low stock:', lowRes.reason);
       
-      if (transRes.status === 'fulfilled') setRecentTransactions(transRes.value.data);
-      else console.error('Failed to load recent transactions:', transRes.reason);
+      if (transRes.status === 'fulfilled') {
+        setRecentTransactions(transRes.value.data);
+        sessionStorage.setItem('cached_dashboard_recent', JSON.stringify(transRes.value.data));
+      } else console.error('Failed to load recent transactions:', transRes.reason);
     } catch (err) {
       console.error('Failed to load dashboard data', err);
     } finally {
@@ -194,6 +239,7 @@ export const HomePage: React.FC = () => {
     try {
       const res = await api.get(`/dashboard/trends?period=${period}`);
       setTrends(res.data);
+      sessionStorage.setItem('cached_dashboard_trends', JSON.stringify(res.data));
     } catch (err) {
       console.error('Failed to load trends', err);
     }

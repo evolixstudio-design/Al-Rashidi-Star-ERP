@@ -16,13 +16,9 @@ export class UsersService implements OnModuleInit {
   }
 
   async seedOwners(): Promise<void> {
-    const salt = await bcrypt.genSalt(10);
-    const hashOwner1 = await bcrypt.hash('Mohammed53', salt);
-    const hashOwner2 = await bcrypt.hash('Aliasgar5253', salt);
-    const hashEvolix = await bcrypt.hash('Qusai5253', salt);
-
     const existingOwner1 = await this.userRepo.findOne({ where: { username: 'owner1' } });
     if (!existingOwner1) {
+      const hashOwner1 = await bcrypt.hash('Mohammed53', 10);
       const owner1 = this.userRepo.create({
         username: 'owner1',
         passwordHash: hashOwner1,
@@ -32,13 +28,19 @@ export class UsersService implements OnModuleInit {
       });
       await this.userRepo.save(owner1);
     } else {
-      existingOwner1.displayName = 'Yusuf ali jath wala';
-      existingOwner1.passwordHash = hashOwner1;
-      await this.userRepo.save(existingOwner1);
+      const isMatch = await bcrypt.compare('Mohammed53', existingOwner1.passwordHash);
+      if (!isMatch || existingOwner1.displayName !== 'Yusuf ali jath wala') {
+        existingOwner1.displayName = 'Yusuf ali jath wala';
+        if (!isMatch) {
+          existingOwner1.passwordHash = await bcrypt.hash('Mohammed53', 10);
+        }
+        await this.userRepo.save(existingOwner1);
+      }
     }
 
     const existingOwner2 = await this.userRepo.findOne({ where: { username: 'owner2' } });
     if (!existingOwner2) {
+      const hashOwner2 = await bcrypt.hash('Aliasgar5253', 10);
       const owner2 = this.userRepo.create({
         username: 'owner2',
         passwordHash: hashOwner2,
@@ -48,13 +50,19 @@ export class UsersService implements OnModuleInit {
       });
       await this.userRepo.save(owner2);
     } else {
-      existingOwner2.displayName = 'Aliasgar jath wala';
-      existingOwner2.passwordHash = hashOwner2;
-      await this.userRepo.save(existingOwner2);
+      const isMatch = await bcrypt.compare('Aliasgar5253', existingOwner2.passwordHash);
+      if (!isMatch || existingOwner2.displayName !== 'Aliasgar jath wala') {
+        existingOwner2.displayName = 'Aliasgar jath wala';
+        if (!isMatch) {
+          existingOwner2.passwordHash = await bcrypt.hash('Aliasgar5253', 10);
+        }
+        await this.userRepo.save(existingOwner2);
+      }
     }
 
     const existingEvolix = await this.userRepo.findOne({ where: { username: 'evolixstudio@gmail.com' } });
     if (!existingEvolix) {
+      const hashEvolix = await bcrypt.hash('Qusai5253', 10);
       const evolix = this.userRepo.create({
         username: 'evolixstudio@gmail.com',
         passwordHash: hashEvolix,
@@ -64,15 +72,24 @@ export class UsersService implements OnModuleInit {
       });
       await this.userRepo.save(evolix);
     } else {
-      existingEvolix.displayName = 'Evolix Admin';
-      existingEvolix.passwordHash = hashEvolix;
-      existingEvolix.role = UserRole.ADMIN;
-      await this.userRepo.save(existingEvolix);
+      const isMatch = await bcrypt.compare('Qusai5253', existingEvolix.passwordHash);
+      if (!isMatch || existingEvolix.displayName !== 'Evolix Admin') {
+        existingEvolix.displayName = 'Evolix Admin';
+        existingEvolix.role = UserRole.ADMIN;
+        if (!isMatch) {
+          existingEvolix.passwordHash = await bcrypt.hash('Qusai5253', 10);
+        }
+        await this.userRepo.save(existingEvolix);
+      }
     }
   }
 
   async findByUsername(username: string): Promise<User | null> {
-    return this.userRepo.findOne({ where: { username } });
+    const clean = (username || '').trim().toLowerCase();
+    return this.userRepo
+      .createQueryBuilder('user')
+      .where('LOWER(user.username) = :clean', { clean })
+      .getOne();
   }
 
   async findById(id: number): Promise<User | null> {
