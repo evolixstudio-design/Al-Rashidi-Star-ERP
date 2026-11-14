@@ -158,7 +158,7 @@ export class WhatsAppService {
     // Keep explicit international country codes; local eight-digit numbers default to Kuwait.
     const normalizedPhone = this.normalizeKuwaitPhone(phone);
     if (!normalizedPhone) {
-      throw new BadRequestException('Invalid customer phone number. Use 8 digits for Kuwait or include the international country code, for example +965 or +91.');
+      throw new BadRequestException('Invalid customer phone number. For international numbers, include + or 00 followed by the country code and phone number. Eight-digit local numbers default to Kuwait.');
     }
 
     // 5. Generate message text
@@ -529,6 +529,7 @@ export class WhatsAppService {
     let clean = value.replace(/[^0-9]/g, '');
     if (clean.startsWith('00')) clean = clean.slice(2);
     if (!international && clean.length === 8) clean = `965${clean}`;
-    return /^[1-9]\d{7,14}$/.test(clean) ? clean : '';
+    const valid = international ? /^[1-9]\d{1,14}$/.test(clean) : /^[1-9]\d{7,14}$/.test(clean);
+    return valid ? clean : '';
   }
 }

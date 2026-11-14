@@ -13,7 +13,7 @@ Run the backend and frontend locally. Sign in as admin, open **Settings → What
 
 The invoice's **WhatsApp Customer** and **Payment Reminder** buttons send its image and receipt/reminder as one message. Invoice-linked receipts in Payments work the same way. Customer and dashboard reminders send each unpaid invoice image with its own reminder caption; progress shows the count and stops on a failure. Payments with no linked invoice retain their existing text confirmation. Opening balances alone cannot have an invoice image.
 
-Eight-digit phone numbers default to Kuwait (`+965`). International numbers retain their country code: use `+91…`, `0091…`, `+977…`, etc. Only numbers registered on WhatsApp can receive a message. Recipients never need to link their account to the ERP.
+Eight-digit local phone numbers default to Kuwait (`+965`). International numbers from any country retain their country code: use `+` or `00` followed by the country code and phone number. There is no country allowlist, and shorter international numbers are supported too. Only numbers registered on WhatsApp can receive a message. Recipients never need to link their account to the ERP.
 
 QR credentials stay in `backend/.wwebjs_auth/`; this folder and the browser cache are ignored by Git. Never upload or share the session folder. Disconnect in Settings to unlink it. Normal shutdown preserves the link for the next startup.
 

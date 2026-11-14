@@ -96,7 +96,8 @@ export function normalizeKuwaitPhone(phone?: string | null): string {
   let clean = value.replace(/[^0-9]/g, '');
   if (clean.startsWith('00')) clean = clean.slice(2);
   if (!international && clean.length === 8) clean = `965${clean}`;
-  return /^[1-9]\d{7,14}$/.test(clean) ? clean : '';
+  const valid = international ? /^[1-9]\d{1,14}$/.test(clean) : /^[1-9]\d{7,14}$/.test(clean);
+  return valid ? clean : '';
 }
 
 /**
