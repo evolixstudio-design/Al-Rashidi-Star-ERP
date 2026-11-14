@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { TransactionAuditModal } from '../components/common/TransactionAuditModal';
 import { openWhatsAppWithText } from '../services/whatsappService';
+import { useInvoiceWhatsApp } from '../hooks/useInvoiceWhatsApp';
 
 import { normalizeSearchText } from '../utils/searchUtils';
 import { CustomerCombobox } from '../components/common/CustomerCombobox';
@@ -66,6 +67,7 @@ interface CustomerReceiptItem {
 
 export const PaymentsPage: React.FC = () => {
   const { t, lang } = useTranslations();
+  const whatsapp = useInvoiceWhatsApp();
   const [searchParams] = useSearchParams();
 
   /* ── State ── */
@@ -221,30 +223,7 @@ export const PaymentsPage: React.FC = () => {
     }
 
     if (rcpt.invoice) {
-      const invTotal = Number(rcpt.invoice.totalAmountKd ?? rcpt.invoice.grandTotalAmountKd ?? 0);
-      const balance = Number(rcpt.invoice.outstandingKd ?? rcpt.invoice.balanceKd ?? 0);
-      const isFullPaid = balance <= 0.0001 && (invTotal > 0 || rcpt.invoice.paymentStatus === 'PAID');
-      const totalPaid = isFullPaid
-        ? invTotal
-        : Number(rcpt.invoice.amountReceivedKd ?? (invTotal > balance ? invTotal - balance : rcpt.amountKd));
-
-      openWhatsAppWithText(
-        {
-          receiptNumber: rcpt.receiptNumber,
-          customerName: rcpt.customer?.name,
-          customerPhone: phone,
-          date: rcpt.receiptDate,
-          amountReceived: rcpt.amountKd,
-          paymentMethod: rcpt.paymentMethod,
-          invoiceNumber: rcpt.invoice.invoiceNumber,
-          invoiceDate: rcpt.invoice.invoiceDate,
-          invoiceTotal: invTotal,
-          totalPaid: totalPaid,
-          outstandingAmount: balance,
-          paymentStatus: isFullPaid ? 'PAID' : 'PARTIAL',
-        },
-        isFullPaid ? 'FULL_PAYMENT_RECEIPT' : 'PARTIAL_PAYMENT_RECEIPT'
-      );
+      void whatsapp.sendInvoice(rcpt.invoice.id, false);
     } else {
       // Generic payment confirmation from Payments page
       const custObj = customers.find((c) => c.id === rcpt.customer?.id);
@@ -312,6 +291,7 @@ export const PaymentsPage: React.FC = () => {
   return (
     <div className="space-y-6 pb-12 antialiased">
       {/* Toast */}
+      {whatsapp.message && <p role="status" aria-live="polite" className="p-3 bg-white border border-slate-300 rounded-lg text-sm text-slate-800">{whatsapp.message}</p>}
       {toast && (
         <div className="fixed bottom-6 right-6 z-50 bg-emerald-600 text-white px-5 py-3 rounded-xl shadow-xl flex items-center gap-2 text-sm font-semibold animate-fade-in">
           <CheckCircle2 size={18} />
@@ -549,6 +529,7 @@ export const PaymentsPage: React.FC = () => {
                           {rcpt.customer?.phone && (
                             <button
                               type="button"
+                              disabled={whatsapp.busy}
                               onClick={() => sendWhatsAppConfirmation(rcpt)}
                               className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs rounded-lg transition-colors inline-flex items-center gap-1 cursor-pointer shadow-xs"
                               title="Send WhatsApp Confirmation"
@@ -643,7 +624,8 @@ export const PaymentsPage: React.FC = () => {
                       {rcpt.customer?.phone && (
                         <button
                           type="button"
-                          onClick={() => sendWhatsAppConfirmation(rcpt)}
+                          disabled={whatsapp.busy}
+                              onClick={() => sendWhatsAppConfirmation(rcpt)}
                           className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs rounded-lg inline-flex items-center gap-1"
                         >
                           <MessageCircle size={13} /> WA
@@ -870,6 +852,7 @@ export const PaymentsPage: React.FC = () => {
                 {viewReceiptModal.customer?.phone && (
                   <button
                     type="button"
+                    disabled={whatsapp.busy}
                     onClick={() => sendWhatsAppConfirmation(viewReceiptModal)}
                     className="p-2 sm:px-3 sm:py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer shadow-xs min-h-touch min-w-touch justify-center"
                   >
