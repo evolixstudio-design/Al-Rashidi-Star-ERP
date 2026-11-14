@@ -1,7 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { Printer, MessageCircle, Download, Check, BellRing, History, Ban, Image as ImageIcon } from 'lucide-react';
-import html2canvas from 'html2canvas';
-import jsPDF from 'jspdf';
+import { downloadFile } from '../../utils/downloadFile';
 import { TransactionAuditModal } from './TransactionAuditModal';
 import {
   RashidiStarInvoiceSheet,
@@ -71,49 +70,11 @@ export const RashidiStarInvoice: React.FC<RashidiStarInvoiceProps> = ({
     try {
       setIsGeneratingPdf(true);
 
-      // 1. Wait for web fonts
-      if (document.fonts && document.fonts.ready) {
-        await document.fonts.ready;
-      }
-
-      // 2. Wait for all images inside element
-      const images = Array.from(element.querySelectorAll('img'));
-      await Promise.all(
-        images.map((img) => {
-          if (img.complete && img.naturalWidth > 0) return Promise.resolve();
-          return new Promise<void>((resolve) => {
-            const onDone = () => {
-              img.removeEventListener('load', onDone);
-              img.removeEventListener('error', onDone);
-              resolve();
-            };
-            img.addEventListener('load', onDone);
-            img.addEventListener('error', onDone);
-            setTimeout(onDone, 3500);
-          });
-        })
-      );
-
-      // 3. Capture raw unscaled fixed A4 renderer directly
-      const canvas = await html2canvas(element, {
-        scale: 2.5, // High resolution (1985 x 2808)
-        useCORS: true,
-        logging: false,
-        backgroundColor: '#ffffff',
-        width: 794,
-        height: 1123,
-        allowTaint: true,
-      });
-
-      if (!canvas || canvas.width === 0 || canvas.height === 0) {
-        throw new Error('Invoice canvas was empty');
-      }
-
-      const imgData = canvas.toDataURL('image/jpeg', 0.95);
-      if (!imgData || imgData === 'data:,' || imgData.length < 200) {
-        throw new Error('Invoice image data was empty');
-      }
-
+      const [image, { default: jsPDF }] = await Promise.all([
+        generateInvoiceJpg(element, invoice.invoiceNumber),
+        import('jspdf'),
+      ]);
+      if (!image) throw new Error('Invoice image could not be generated');
       const pdf = new jsPDF({
         orientation: 'portrait',
         unit: 'mm',
@@ -121,7 +82,7 @@ export const RashidiStarInvoice: React.FC<RashidiStarInvoiceProps> = ({
       });
 
       // Exactly full A4 page (210mm x 297mm) - NO auto-scaling to half-page
-      pdf.addImage(imgData, 'JPEG', 0, 0, 210, 297);
+      pdf.addImage(new Uint8Array(await image.blob.arrayBuffer()), 'JPEG', 0, 0, 210, 297);
 
       const cleanInvNum = (invoice.invoiceNumber || 'INV').replace(/[^a-zA-Z0-9_-]/g, '');
       const filename = `Rashidi-Star-${cleanInvNum}.pdf`;
@@ -137,19 +98,13 @@ export const RashidiStarInvoice: React.FC<RashidiStarInvoiceProps> = ({
 
   // Action: Download Invoice PDF
   const handleDownloadPdf = async () => {
+    if (isGeneratingPdf) return;
     const res = await generatePdfBlob();
     if (!res) {
       alert('Invoice PDF could not be generated. Please try again.');
       return;
     }
-    const url = URL.createObjectURL(res.blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = res.filename;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+    downloadFile(res.blob, res.filename);
 
     setPdfSuccessMessage('Invoice PDF downloaded successfully!');
     setTimeout(() => setPdfSuccessMessage(null), 4000);
@@ -157,6 +112,7 @@ export const RashidiStarInvoice: React.FC<RashidiStarInvoiceProps> = ({
 
   // Action: Download Invoice Photo (JPG)
   const handleDownloadPhoto = async () => {
+    if (isGeneratingPdf) return;
     const element = exportInvoicePaperRef.current || invoicePaperRef.current;
     if (!element) return;
     setIsGeneratingPdf(true);

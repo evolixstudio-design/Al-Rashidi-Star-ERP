@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import api from '../services/api';
+import axios from 'axios';
 
 export interface AuthUser {
   id: number;
@@ -21,7 +22,11 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<AuthUser | null>(() => {
     const saved = localStorage.getItem('user');
-    return saved ? JSON.parse(saved) : null;
+    try {
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
   });
   const [token, setToken] = useState<string | null>(() => {
     return localStorage.getItem('token');
@@ -36,13 +41,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           const res = await api.get('/auth/me');
           setUser(res.data);
           localStorage.setItem('user', JSON.stringify(res.data));
-        } catch {
-          // Token is invalid or expired
-          localStorage.removeItem('token');
-          localStorage.removeItem('user');
-          setUser(null);
-          setToken(null);
+        } catch (error) {
+          // A sleeping server or lost connection does not invalidate the saved login.
+          if (axios.isAxiosError(error) && error.response?.status === 401) {
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            setUser(null);
+            setToken(null);
+          }
         }
+      } else {
+        setUser(null);
+        setToken(null);
       }
       setIsLoading(false);
     };

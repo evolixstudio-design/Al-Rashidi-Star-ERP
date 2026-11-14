@@ -27,15 +27,6 @@ export class UsersService implements OnModuleInit {
         isActive: true,
       });
       await this.userRepo.save(owner1);
-    } else {
-      const isMatch = await bcrypt.compare('Mohammed53', existingOwner1.passwordHash);
-      if (!isMatch || existingOwner1.displayName !== 'Yusuf ali jath wala') {
-        existingOwner1.displayName = 'Yusuf ali jath wala';
-        if (!isMatch) {
-          existingOwner1.passwordHash = await bcrypt.hash('Mohammed53', 10);
-        }
-        await this.userRepo.save(existingOwner1);
-      }
     }
 
     const existingOwner2 = await this.userRepo.findOne({ where: { username: 'owner2' } });
@@ -49,15 +40,6 @@ export class UsersService implements OnModuleInit {
         isActive: true,
       });
       await this.userRepo.save(owner2);
-    } else {
-      const isMatch = await bcrypt.compare('Aliasgar5253', existingOwner2.passwordHash);
-      if (!isMatch || existingOwner2.displayName !== 'Aliasgar jath wala') {
-        existingOwner2.displayName = 'Aliasgar jath wala';
-        if (!isMatch) {
-          existingOwner2.passwordHash = await bcrypt.hash('Aliasgar5253', 10);
-        }
-        await this.userRepo.save(existingOwner2);
-      }
     }
 
     const existingEvolix = await this.userRepo.findOne({ where: { username: 'evolixstudio@gmail.com' } });
@@ -71,16 +53,6 @@ export class UsersService implements OnModuleInit {
         isActive: true,
       });
       await this.userRepo.save(evolix);
-    } else {
-      const isMatch = await bcrypt.compare('Qusai5253', existingEvolix.passwordHash);
-      if (!isMatch || existingEvolix.displayName !== 'Evolix Admin') {
-        existingEvolix.displayName = 'Evolix Admin';
-        existingEvolix.role = UserRole.ADMIN;
-        if (!isMatch) {
-          existingEvolix.passwordHash = await bcrypt.hash('Qusai5253', 10);
-        }
-        await this.userRepo.save(existingEvolix);
-      }
     }
   }
 

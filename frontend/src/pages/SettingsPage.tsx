@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import api from '../services/api';
+import { downloadFile } from '../utils/downloadFile';
 import { useAuth } from '../context/AuthContext';
 import { useTranslations } from '../hooks/useTranslations';
 import { LanguageSwitcher } from '../components/common/LanguageSwitcher';
@@ -109,9 +110,11 @@ export const SettingsPage: React.FC = () => {
     try {
       setBackupLoading(true);
       setBackupMessage(null);
-      const res = await api.post('/backup/create-dump');
-      setBackupMessage({ text: res.data.message || 'PostgreSQL backup created.', type: 'success' });
-      fetchBackups();
+      const res = await api.post('/backup/create-dump', undefined, { timeout: 180000 });
+      const file = await api.get(`/backup/download/${encodeURIComponent(res.data.fileName)}`, { responseType: 'blob', timeout: 180000 });
+      downloadFile(file.data, res.data.fileName);
+      setBackupMessage({ text: `${res.data.message} Download started.`, type: 'success' });
+      await fetchBackups();
     } catch (err: any) {
       setBackupMessage({ text: err.response?.data?.message || 'Failed to create PostgreSQL dump.', type: 'error' });
     } finally {
@@ -123,20 +126,13 @@ export const SettingsPage: React.FC = () => {
     try {
       setBackupLoading(true);
       setBackupMessage(null);
-      const res = await api.get('/backup/export-json');
+      const res = await api.get('/backup/export-json', { timeout: 180000 });
       const blob = new Blob([JSON.stringify(res.data, null, 2)], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `rashidi_snapshot_${new Date().toISOString().split('T')[0]}.json`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+      downloadFile(blob, res.data.meta.fileName || `rashidi_snapshot_${new Date().toISOString().split('T')[0]}.json`);
       setBackupMessage({ text: 'JSON snapshot downloaded successfully.', type: 'success' });
-      fetchBackups();
+      await fetchBackups();
     } catch (err: any) {
-      setBackupMessage({ text: 'Failed to export JSON snapshot.', type: 'error' });
+      setBackupMessage({ text: err.response?.data?.message || 'Export did not finish. Please check your connection and try again.', type: 'error' });
     } finally {
       setBackupLoading(false);
     }
@@ -157,7 +153,7 @@ export const SettingsPage: React.FC = () => {
         setBackupLoading(true);
         setBackupMessage(null);
         const parsed = JSON.parse(event.target?.result as string);
-        const res = await api.post('/backup/restore-json', parsed);
+        const res = await api.post('/backup/restore-json', parsed, { timeout: 180000 });
         setBackupMessage({ text: res.data.message || 'Database restored successfully.', type: 'success' });
         fetchBackups();
         fetchAudit();
@@ -174,8 +170,24 @@ export const SettingsPage: React.FC = () => {
   useEffect(() => {
     fetchCompany();
     fetchAudit();
-    fetchBackups();
   }, []);
+
+  useEffect(() => {
+    if (isAdmin && activeTab === 'backup') fetchBackups();
+  }, [isAdmin, activeTab]);
+
+  const handleDownloadBackup = async (fileName: string) => {
+    setBackupLoading(true);
+    setBackupMessage(null);
+    try {
+      const res = await api.get(`/backup/download/${encodeURIComponent(fileName)}`, { responseType: 'blob', timeout: 180000 });
+      downloadFile(res.data, fileName);
+    } catch {
+      setBackupMessage({ text: 'Backup download failed. Please check your connection and try again.', type: 'error' });
+    } finally {
+      setBackupLoading(false);
+    }
+  };
 
   const handleSaveCompany = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -240,7 +252,6 @@ export const SettingsPage: React.FC = () => {
               type="button"
               onClick={() => {
                 setActiveTab('backup');
-                fetchBackups();
               }}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md font-semibold text-xs transition-all ${
                 activeTab === 'backup'
@@ -521,7 +532,7 @@ export const SettingsPage: React.FC = () => {
                     PostgreSQL Production Database & Disaster Recovery
                   </h2>
                   <p className="text-xs text-slate-500">
-                    Host: 127.0.0.1:5432 | Database: <strong className="text-slate-800">rashidi_erp</strong> | Engine: PostgreSQL
+                    Complete backups include invoices, payments, stock, product images and the audit trail.
                   </p>
                 </div>
               </div>
@@ -636,14 +647,15 @@ export const SettingsPage: React.FC = () => {
                           {new Date(b.createdAt).toLocaleString('en-GB')}
                         </td>
                         <td className="py-2.5 px-4 text-right">
-                          <a
-                            href={`http://127.0.0.1:3000/api/backup/download/${encodeURIComponent(b.fileName)}`}
-                            download={b.fileName}
+                          <button
+                            type="button"
+                            onClick={() => handleDownloadBackup(b.fileName)}
+                            disabled={backupLoading}
                             className="inline-flex items-center gap-1.5 px-3 py-1 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold rounded text-xs transition-colors"
                           >
                             <Download className="w-3.5 h-3.5" />
                             <span>Download</span>
-                          </a>
+                          </button>
                         </td>
                       </tr>
                     ))}

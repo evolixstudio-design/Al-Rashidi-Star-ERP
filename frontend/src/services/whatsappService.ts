@@ -4,8 +4,8 @@
  * WhatsApp action is strictly text-only via wa.me.
  * Invoice image download is a separate action.
  */
-import html2canvas from 'html2canvas';
 import api from './api';
+import { downloadFile } from '../utils/downloadFile';
 import {
   buildWhatsAppUrl,
   type WhatsAppPaymentData,
@@ -42,6 +42,7 @@ export async function generateInvoiceJpg(
   invoiceNumber: string,
 ): Promise<GeneratedInvoiceJpg | null> {
   try {
+    const { default: html2canvas } = await import('html2canvas');
     // 1. Wait for web fonts
     if (document.fonts && document.fonts.ready) {
       await document.fonts.ready;
@@ -70,9 +71,11 @@ export async function generateInvoiceJpg(
       useCORS: true,
       logging: false,
       backgroundColor: '#ffffff',
-      allowTaint: true,
+      allowTaint: false,
       width: 794,
       height: 1123,
+      // Cloning the full sales list can freeze the browser before the download starts.
+      ignoreElements: (node) => document.body.contains(node) && !node.contains(element) && !element.contains(node),
     });
 
     if (!canvas || canvas.width === 0 || canvas.height === 0) {
@@ -105,14 +108,7 @@ export async function generateInvoiceJpg(
  * Download the JPG file to the user's device.
  */
 export function downloadJpg(jpgBlob: Blob, filename: string): void {
-  const url = URL.createObjectURL(jpgBlob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = filename;
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  URL.revokeObjectURL(url);
+  downloadFile(jpgBlob, filename);
 }
 
 /**
@@ -178,7 +174,9 @@ export async function openWhatsAppChat(
     ? 'WHATSAPP_OUTSTANDING_BALANCE_REMINDER' 
     : (isReminder ? 'WHATSAPP_REMINDER_OPENED' : 'WHATSAPP_CHAT_OPENED');
 
-  // 1. Log the action
+  // Open during the click so slow audit requests cannot trigger popup blocking.
+  window.open(url, '_blank', 'noopener,noreferrer');
+
   await logWhatsAppAction(
     action,
     invoiceNumber,
@@ -186,8 +184,6 @@ export async function openWhatsAppChat(
     paymentData.paymentStatus || 'UNKNOWN'
   );
 
-  // 2. Open WhatsApp
-  window.open(url, '_blank', 'noopener,noreferrer');
 }
 
 /**

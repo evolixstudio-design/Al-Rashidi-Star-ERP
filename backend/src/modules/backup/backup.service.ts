@@ -1,19 +1,14 @@
-import {
-  Injectable,
-  BadRequestException,
-  InternalServerErrorException,
-  Logger,
-  NotFoundException,
-} from '@nestjs/common';
+import { Injectable, BadRequestException, Logger, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { DataSource } from 'typeorm';
-import { exec } from 'child_process';
+import { execFile } from 'child_process';
 import { promisify } from 'util';
 import * as fs from 'fs';
 import * as path from 'path';
 import { AuditService } from '../audit/audit.service.js';
 
-const execAsync = promisify(exec);
+const execFileAsync = promisify(execFile);
+const quoteIdentifier = (value: string) => `"${value.replace(/"/g, '""')}"`;
 
 export interface BackupFileInfo {
   fileName: string;
@@ -34,352 +29,205 @@ export class BackupService {
     private readonly dataSource: DataSource,
     private readonly auditService: AuditService,
   ) {
-    if (!fs.existsSync(this.backupDir)) {
-      try {
-        fs.mkdirSync(this.backupDir, { recursive: true });
-      } catch (err) {
-        this.logger.error('Failed to create backup directory', err);
-      }
-    }
+    fs.mkdirSync(this.backupDir, { recursive: true });
   }
 
-  /* ── 1. PostgreSQL Native pg_dump ── */
+  private getConnection() {
+    const configuredUrl = this.configService.get<string>('DATABASE_URL');
+    const url = configuredUrl ? new URL(configuredUrl) : null;
+    const host = url?.hostname || this.configService.get<string>('DB_HOST', '127.0.0.1');
+    return {
+      host: host.endsWith('.neon.tech') ? host.replace('-pooler', '') : host,
+      port: url?.port || this.configService.get<string>('DB_PORT', '5432'),
+      username: url ? decodeURIComponent(url.username) : this.configService.get<string>('DB_USERNAME', 'postgres'),
+      password: url ? decodeURIComponent(url.password) : this.configService.get<string>('DB_PASSWORD'),
+      database: url ? decodeURIComponent(url.pathname.slice(1)) : this.configService.get<string>('DB_DATABASE', 'rashidi_erp'),
+      ssl: host.endsWith('.neon.tech') || this.configService.get<string>('DB_SSL') === 'true' || Boolean(url?.searchParams.has('sslmode')),
+    };
+  }
+
   async createPgDump(user?: any): Promise<{ success: boolean; fileName: string; path: string; message: string }> {
-    const host = this.configService.get<string>('DB_HOST', '127.0.0.1');
-    const port = this.configService.get<string>('DB_PORT', '5432');
-    const username = this.configService.get<string>('DB_USERNAME', 'postgres');
-    const password = this.configService.get<string>('DB_PASSWORD');
-    const dbName = this.configService.get<string>('DB_DATABASE', 'rashidi_erp');
-
-    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const fileName = `rashidi_pg_dump_${timestamp}.sql`;
+    const connection = this.getConnection();
+    const fileName = `rashidi_pg_dump_${new Date().toISOString().replace(/[:.]/g, '-')}.sql`;
     const filePath = path.join(this.backupDir, fileName);
-
-    const env = { ...process.env, PGPASSWORD: password };
-    
-    // Resolve pg_dump binary: check standard Windows paths if not in PATH
-    let pgDumpBin = 'pg_dump';
-    const standardPgPaths = [
-      'C:\\Program Files\\PostgreSQL\\18\\bin\\pg_dump.exe',
-      'C:\\Program Files\\PostgreSQL\\17\\bin\\pg_dump.exe',
-      'C:\\Program Files\\PostgreSQL\\16\\bin\\pg_dump.exe',
-      'C:\\Program Files\\PostgreSQL\\15\\bin\\pg_dump.exe',
-      'C:\\Program Files\\PostgreSQL\\14\\bin\\pg_dump.exe',
-    ];
-    for (const p of standardPgPaths) {
-      if (fs.existsSync(p)) {
-        pgDumpBin = `"${p}"`;
-        break;
-      }
-    }
-
-    const cmd = `${pgDumpBin} -h ${host} -p ${port} -U ${username} -d ${dbName} -F p -f "${filePath}"`;
+    const partialPath = `${filePath}.partial`;
+    const pgDumpBin = [18, 17, 16, 15, 14]
+      .map((version) => `C:\\Program Files\\PostgreSQL\\${version}\\bin\\pg_dump.exe`)
+      .find((candidate) => fs.existsSync(candidate)) || 'pg_dump';
 
     try {
-      this.logger.log(`Executing native PostgreSQL backup: ${cmd}`);
-      await execAsync(cmd, { env });
-
-      await this.auditService.log({
-        action: 'CREATE_BACKUP',
-        entityType: 'DATABASE',
-        entityId: fileName,
-        performedBy: user?.displayName || 'System Admin',
-        details: { fileName, type: 'PG_DUMP', database: dbName },
+      await execFileAsync(pgDumpBin, ['--format=plain', '--no-owner', '--no-privileges', '--lock-wait-timeout=10000', '--file', partialPath], {
+        timeout: 120000,
+        env: {
+          ...process.env,
+          PGHOST: connection.host,
+          PGPORT: connection.port,
+          PGUSER: connection.username,
+          PGPASSWORD: connection.password,
+          PGDATABASE: connection.database,
+          PGSSLMODE: connection.ssl ? 'require' : 'disable',
+          PGCONNECT_TIMEOUT: '10',
+        },
       });
-
+      await fs.promises.rename(partialPath, filePath);
+    } catch {
+      await fs.promises.rm(partialPath, { force: true });
+      this.logger.warn('Native pg_dump unavailable or failed; creating a complete JSON backup.');
+      const snapshot = await this.exportJsonSnapshot(user);
       return {
         success: true,
-        fileName,
-        path: filePath,
-        message: `PostgreSQL native pg_dump created successfully: ${fileName}`,
-      };
-    } catch (err: any) {
-      this.logger.warn(`Native pg_dump command failed: ${err.message}. Falling back to full database snapshot.`);
-      // If pg_dump binary is not in Windows system PATH, generate full SQL schema + data dump directly via TypeORM
-      const fallbackDump = await this.generateSqlDumpFallback(fileName, filePath);
-
-      await this.auditService.log({
-        action: 'CREATE_BACKUP',
-        entityType: 'DATABASE',
-        entityId: fileName,
-        performedBy: user?.displayName || 'System Admin',
-        details: { fileName, type: 'SQL_FALLBACK', database: dbName },
-      });
-
-      return {
-        success: true,
-        fileName,
-        path: filePath,
-        message: fallbackDump.message,
+        fileName: snapshot.meta.fileName,
+        path: path.join(this.backupDir, snapshot.meta.fileName),
+        message: 'Complete JSON backup created. PostgreSQL command-line tools were unavailable; download this file for safekeeping.',
       };
     }
+
+    await this.auditService.log({
+      action: 'CREATE_BACKUP', entityType: 'DATABASE', entityId: fileName,
+      performedBy: user?.displayName || 'System Admin', details: { fileName, type: 'PG_DUMP' },
+    }).catch(() => this.logger.warn('Backup saved, but its audit entry could not be recorded.'));
+    return { success: true, fileName, path: filePath, message: 'Complete PostgreSQL backup created. Download it for safekeeping.' };
   }
 
-  /* ── 2. Full SQL Dump Fallback ── */
-  private async generateSqlDumpFallback(fileName: string, filePath: string) {
-    const tables = [
-      'users',
-      'company',
-      'settings',
-      'categories',
-      'products',
-      'stock_ledger',
-      'suppliers',
-      'purchase_receipts',
-      'purchase_lines',
-      'customers',
-      'sales_invoices',
-      'sales_invoice_lines',
-      'customer_receipts',
-      'expenses',
-      'audit_events',
-    ];
-
-    let sqlContent = `-- ========================================================\n`;
-    sqlContent += `-- Rashidi Traders Kuwait ERP - Production Database Backup\n`;
-    sqlContent += `-- Generated: ${new Date().toISOString()}\n`;
-    sqlContent += `-- Engine: PostgreSQL (rashidi_erp)\n`;
-    sqlContent += `-- ========================================================\n\n`;
-
-    for (const table of tables) {
-      try {
-        const rows = await this.dataSource.query(`SELECT * FROM "${table}"`);
-        sqlContent += `-- Table: ${table} (${rows.length} records)\n`;
-        if (rows.length > 0) {
-          for (const row of rows) {
-            const columns = Object.keys(row).map((k) => `"${k}"`).join(', ');
-            const values = Object.values(row)
-              .map((val) => {
-                if (val === null || val === undefined) return 'NULL';
-                if (typeof val === 'number' || typeof val === 'boolean') return val;
-                if (val instanceof Date) return `'${val.toISOString()}'`;
-                if (typeof val === 'object') return `'${JSON.stringify(val).replace(/'/g, "''")}'`;
-                return `'${String(val).replace(/'/g, "''")}'`;
-              })
-              .join(', ');
-            sqlContent += `INSERT INTO "${table}" (${columns}) VALUES (${values}) ON CONFLICT DO NOTHING;\n`;
-          }
-        }
-        sqlContent += `\n`;
-      } catch (err: any) {
-        this.logger.warn(`Could not export table ${table}: ${err.message}`);
-      }
-    }
-
-    fs.writeFileSync(filePath, sqlContent, 'utf-8');
-    return {
-      success: true,
-      fileName,
-      filePath,
-      message: `Complete database SQL dump generated (${fileName})`,
-    };
-  }
-
-  /* ── 3. JSON Snapshot (Data Export) ── */
   async exportJsonSnapshot(user?: any): Promise<any> {
-    const tables = [
-      'users',
-      'company',
-      'settings',
-      'categories',
-      'products',
-      'stock_ledger',
-      'suppliers',
-      'purchase_receipts',
-      'purchase_lines',
-      'customers',
-      'sales_invoices',
-      'sales_invoice_lines',
-      'customer_receipts',
-      'expenses',
-      'audit_events',
-    ];
-
-    const snapshotData: Record<string, any[]> = {};
-    let totalRecords = 0;
-
-    for (const table of tables) {
-      try {
-        const rows = await this.dataSource.query(`SELECT * FROM "${table}"`);
-        snapshotData[table] = rows;
-        totalRecords += rows.length;
-      } catch (err: any) {
-        this.logger.warn(`Could not export table ${table} for JSON snapshot: ${err.message}`);
-        snapshotData[table] = [];
+    const data = await this.dataSource.transaction('REPEATABLE READ', async (manager) => {
+      await manager.query('SET TRANSACTION READ ONLY');
+      const tables: { tablename: string }[] = await manager.query("SELECT tablename FROM pg_tables WHERE schemaname = 'public' ORDER BY tablename");
+      const textColumns: { table_name: string; column_name: string }[] = await manager.query("SELECT table_name, column_name FROM information_schema.columns WHERE table_schema = 'public' AND data_type IN ('timestamp without time zone', 'timestamp with time zone', 'date', 'bytea')");
+      const snapshot: Record<string, any[]> = {};
+      for (const { tablename } of tables) {
+        // Fail the whole export rather than silently publish an incomplete backup.
+        // Preserve timestamp precision and encode image bytes compactly as PostgreSQL hex text.
+        const textValues = textColumns.filter((column) => column.table_name === tablename).map((column) => `, ${quoteIdentifier(column.column_name)}::text AS ${quoteIdentifier(column.column_name)}`).join('');
+        snapshot[tablename] = await manager.query(`SELECT *${textValues} FROM ${quoteIdentifier(tablename)}`);
       }
-    }
-
+      return snapshot;
+    });
+    const fileName = `rashidi_snapshot_${new Date().toISOString().replace(/[:.]/g, '-')}.json`;
     const payload = {
       meta: {
-        system: 'Rashidi Traders Kuwait ERP',
-        currency: 'Kuwait Dinar (KD)',
-        version: '1.0.0',
-        exportedAt: new Date().toISOString(),
-        exportedBy: user?.displayName || 'Owner',
-        totalTables: tables.length,
-        totalRecords,
+        system: 'Rashidi Traders Kuwait ERP', currency: 'Kuwait Dinar (KD)', version: '1.0.0',
+        exportedAt: new Date().toISOString(), exportedBy: user?.displayName || 'Owner', fileName, timestampFormat: 'postgres-text',
+        totalTables: Object.keys(data).length,
+        totalRecords: Object.values(data).reduce((total, rows) => total + rows.length, 0),
       },
-      data: snapshotData,
+      data,
     };
-
-    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const jsonFileName = `rashidi_snapshot_${timestamp}.json`;
-    const jsonFilePath = path.join(this.backupDir, jsonFileName);
-    fs.writeFileSync(jsonFilePath, JSON.stringify(payload, null, 2), 'utf-8');
-
+    const filePath = path.join(this.backupDir, fileName);
+    await fs.promises.writeFile(`${filePath}.partial`, JSON.stringify(payload, null, 2), { flag: 'wx' });
+    await fs.promises.rename(`${filePath}.partial`, filePath);
+    await this.auditService.log({
+      action: 'CREATE_BACKUP', entityType: 'DATABASE', entityId: fileName,
+      performedBy: user?.displayName || 'Owner', details: { fileName, type: 'JSON_SNAPSHOT' },
+    }).catch(() => this.logger.warn('Backup saved, but its audit entry could not be recorded.'));
     return payload;
   }
 
-  /* ── 4. Restore from JSON Snapshot ── */
   async restoreJsonSnapshot(payload: any, user: any): Promise<{ success: boolean; message: string; rowsRestored: number }> {
-    if (!payload || !payload.data || typeof payload.data !== 'object') {
-      throw new BadRequestException('Invalid backup payload format. Expected { meta: {...}, data: {...} }');
+    if (!payload?.data || typeof payload.data !== 'object' || Array.isArray(payload.data)) {
+      throw new BadRequestException('Invalid backup payload. Expected { meta: {...}, data: {...} }.');
     }
 
-    let rowsRestored = 0;
-    const data = payload.data;
-
-    await this.dataSource.transaction(async (manager) => {
-      // Restore in safe dependency order
-      const orderedTables = [
-        'users',
-        'company',
-        'settings',
-        'categories',
-        'products',
-        'suppliers',
-        'customers',
-        'purchase_receipts',
-        'purchase_lines',
-        'sales_invoices',
-        'sales_invoice_lines',
-        'customer_receipts',
-        'stock_ledger',
-        'expenses',
-        'audit_events',
-      ];
-
-      for (const table of orderedTables) {
-        const records = data[table];
-        if (Array.isArray(records) && records.length > 0) {
-          const chunkSize = 100; // Insert 100 records at a time
-          for (let i = 0; i < records.length; i += chunkSize) {
-            const chunk = records.slice(i, i + chunkSize);
-            try {
-              const columns = Object.keys(chunk[0]).map((k) => `"${k}"`).join(', ');
-              const valuesArray = chunk.map((row) => {
-                const values = Object.values(row).map((val) => {
-                  if (val === null || val === undefined) return 'NULL';
-                  if (typeof val === 'number' || typeof val === 'boolean') return val;
-                  if (typeof val === 'object') return `'${JSON.stringify(val).replace(/'/g, "''")}'`;
-                  return `'${String(val).replace(/'/g, "''")}'`;
-                }).join(', ');
-                return `(${values})`;
-              });
-              
-              await manager.query(
-                `INSERT INTO "${table}" (${columns}) VALUES ${valuesArray.join(', ')} ON CONFLICT DO NOTHING;`
-              );
-              rowsRestored += chunk.length;
-            } catch (err: any) {
-              this.logger.warn(`Restore chunk warning on ${table}: ${err.message}`);
-              // Fallback to row-by-row if chunk insert fails due to one bad record
-              for (const row of chunk) {
-                try {
-                   const cols = Object.keys(row).map((k) => `"${k}"`).join(', ');
-                   const vals = Object.values(row).map((val) => {
-                     if (val === null || val === undefined) return 'NULL';
-                     if (typeof val === 'number' || typeof val === 'boolean') return val;
-                     if (typeof val === 'object') return `'${JSON.stringify(val).replace(/'/g, "''")}'`;
-                     return `'${String(val).replace(/'/g, "''")}'`;
-                   }).join(', ');
-                   await manager.query(`INSERT INTO "${table}" (${cols}) VALUES (${vals}) ON CONFLICT DO NOTHING;`);
-                   rowsRestored++;
-                } catch(e) {}
-              }
-            }
-          }
+    const rowsRestored = await this.dataSource.transaction(async (manager) => {
+      const columns: { table_name: string; column_name: string; sequence: string | null }[] = await manager.query(
+        "SELECT table_name, column_name, pg_get_serial_sequence(format('%I.%I', table_schema, table_name), column_name) AS sequence FROM information_schema.columns WHERE table_schema = 'public' ORDER BY ordinal_position",
+      );
+      const tableColumns = new Map<string, Set<string>>();
+      for (const column of columns) {
+        if (!tableColumns.has(column.table_name)) tableColumns.set(column.table_name, new Set());
+        tableColumns.get(column.table_name)!.add(column.column_name);
+      }
+      const remaining = Object.keys(payload.data);
+      for (const table of remaining) {
+        if (!tableColumns.has(table) || !Array.isArray(payload.data[table])) {
+          throw new BadRequestException(`Invalid backup table: ${table}`);
         }
       }
-
-      await this.auditService.log({
-        action: 'RESTORE_DATABASE',
-        entityType: 'DATABASE',
-        entityId: 'ALL',
-        performedBy: user?.displayName || 'Owner',
-        details: {
-          rowsRestored,
-          backupExportedAt: payload.meta?.exportedAt,
-        },
-      });
-    });
-
-    return {
-      success: true,
-      message: `Database successfully restored. ${rowsRestored} records synchronized.`,
-      rowsRestored,
-    };
-  }
-
-  /* ── 5. List Backups ── */
-  async listBackups(): Promise<BackupFileInfo[]> {
-    if (!fs.existsSync(this.backupDir)) return [];
-
-    const files = fs.readdirSync(this.backupDir);
-    const result: BackupFileInfo[] = [];
-
-    for (const f of files) {
-      if (f.endsWith('.sql') || f.endsWith('.json')) {
-        const fPath = path.join(this.backupDir, f);
-        const stats = fs.statSync(fPath);
-        const sizeKb = (stats.size / 1024).toFixed(1);
-        const isSql = f.endsWith('.sql');
-
-        result.push({
-          fileName: f,
-          filePath: fPath,
-          sizeBytes: stats.size,
-          sizeFormatted: `${sizeKb} KB`,
-          createdAt: stats.mtime.toISOString(),
-          type: isSql ? 'SQL_PG_DUMP' : 'JSON_SNAPSHOT',
-        });
+      const dependencies: { child: string; parent: string }[] = await manager.query(
+        "SELECT child.relname AS child, parent.relname AS parent FROM pg_constraint fk JOIN pg_class child ON child.oid = fk.conrelid JOIN pg_class parent ON parent.oid = fk.confrelid JOIN pg_namespace ns ON ns.oid = child.relnamespace WHERE fk.contype = 'f' AND ns.nspname = 'public'",
+      );
+      const ordered: string[] = [];
+      while (remaining.length) {
+        const index = remaining.findIndex((table) => !dependencies.some((fk) => fk.child === table && fk.parent !== table && remaining.includes(fk.parent)));
+        if (index < 0) throw new BadRequestException('Backup contains circular table dependencies. Use a PostgreSQL restore.');
+        ordered.push(...remaining.splice(index, 1));
       }
-    }
 
-    return result.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      let inserted = 0;
+      for (const table of ordered) {
+        const records = payload.data[table];
+        for (let offset = 0; offset < records.length; offset += 100) {
+          const chunk = records.slice(offset, offset + 100);
+          if (chunk.some((row: any) => !row || typeof row !== 'object' || Array.isArray(row))) {
+            throw new BadRequestException(`Invalid record in ${table}`);
+          }
+          const keys = Object.keys(chunk[0]);
+          if (!keys.length || keys.some((key) => !tableColumns.get(table)!.has(key)) || chunk.some((row: any) => Object.keys(row).length !== keys.length || keys.some((key) => !Object.hasOwn(row, key)))) {
+            throw new BadRequestException(`Invalid columns in ${table}`);
+          }
+          const parameters: any[] = [];
+          const values = chunk.map((row: any) => `(${keys.map((key) => {
+            let value = row[key];
+            if (value?.type === 'Buffer' && Array.isArray(value.data)) {
+              if (!value.data.every((byte: any) => Number.isInteger(byte) && byte >= 0 && byte <= 255)) throw new BadRequestException('Invalid image data in backup');
+              value = Buffer.from(value.data);
+            } else if (value !== null && typeof value === 'object') {
+              value = JSON.stringify(value);
+            }
+            parameters.push(value);
+            return `$${parameters.length}`;
+          }).join(', ')})`);
+          const result = await manager.query(
+            `INSERT INTO ${quoteIdentifier(table)} (${keys.map(quoteIdentifier).join(', ')}) OVERRIDING SYSTEM VALUE VALUES ${values.join(', ')} ON CONFLICT DO NOTHING RETURNING 1`, parameters,
+          );
+          inserted += result.length;
+        }
+        for (const column of columns.filter((column) => column.table_name === table && column.sequence)) {
+          // Keep existing sequence progress while making restored IDs safe for the next insert.
+          await manager.query(`SELECT setval($1::regclass, GREATEST((SELECT last_value FROM ${column.sequence}), COALESCE((SELECT MAX(${quoteIdentifier(column.column_name)}) FROM ${quoteIdentifier(table)}), 1)), true)`, [column.sequence]);
+        }
+      }
+      await manager.query('INSERT INTO audit_events (entity_type, entity_id, action, performed_by, details) VALUES ($1, $2, $3, $4, $5)', [
+        'DATABASE', 'ALL', 'RESTORE_DATABASE', user?.displayName || 'Owner', JSON.stringify({ rowsRestored: inserted, backupExportedAt: payload.meta?.exportedAt }),
+      ]);
+      return inserted;
+    });
+    return { success: true, message: `Database restored. ${rowsRestored} new records added; existing records preserved.`, rowsRestored };
   }
 
-  /* ── 6. Get Backup File Path for Download ── */
-  getBackupFilePath(fileName: string): string {
-    const sanitized = path.basename(fileName);
-    const fullPath = path.join(this.backupDir, sanitized);
-    if (!fs.existsSync(fullPath)) {
-      throw new NotFoundException(`Backup file "${sanitized}" not found.`);
+  async listBackups(): Promise<BackupFileInfo[]> {
+    const result: BackupFileInfo[] = [];
+    for (const fileName of await fs.promises.readdir(this.backupDir)) {
+      if (!/\.(sql|json|dump)$/.test(fileName) || fileName.endsWith('.manifest.json')) continue;
+      const filePath = path.join(this.backupDir, fileName);
+      const stats = await fs.promises.stat(filePath);
+      if (!stats.isFile() || !stats.size) continue;
+      result.push({
+        fileName, filePath, sizeBytes: stats.size, sizeFormatted: `${(stats.size / 1024).toFixed(1)} KB`,
+        createdAt: stats.mtime.toISOString(), type: fileName.endsWith('.json') ? 'JSON_SNAPSHOT' : 'SQL_PG_DUMP',
+      });
     }
+    return result.sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt));
+  }
+
+  getBackupFilePath(fileName: string): string {
+    if (path.basename(fileName) !== fileName || !/\.(sql|json|dump)$/.test(fileName)) throw new BadRequestException('Invalid backup filename.');
+    const fullPath = path.join(this.backupDir, fileName);
+    if (!fs.existsSync(fullPath) || !fs.statSync(fullPath).isFile()) throw new NotFoundException('Backup file not found.');
     return fullPath;
   }
 
-  /* ── 7. Disaster Recovery CLI Guide ── */
   getDisasterRecoveryGuide() {
-    const host = this.configService.get<string>('DB_HOST', '127.0.0.1');
-    const port = this.configService.get<string>('DB_PORT', '5432');
-    const username = this.configService.get<string>('DB_USERNAME', 'postgres');
-    const dbName = this.configService.get<string>('DB_DATABASE', 'rashidi_erp');
-
+    const { host, port, username, database } = this.getConnection();
     return {
-      databaseEngine: 'PostgreSQL',
-      host,
-      port,
-      database: dbName,
-      username,
+      databaseEngine: 'PostgreSQL', host, port, database, username,
       commands: {
-        manualBackup: `pg_dump -h ${host} -p ${port} -U ${username} -F c -b -v -f "rashidi_backup.dump" ${dbName}`,
-        manualRestore: `pg_restore -h ${host} -p ${port} -U ${username} -d ${dbName} -v "rashidi_backup.dump"`,
-        plainSqlBackup: `pg_dump -h ${host} -p ${port} -U ${username} -d ${dbName} > rashidi_backup.sql`,
-        plainSqlRestore: `psql -h ${host} -p ${port} -U ${username} -d ${dbName} -f rashidi_backup.sql`,
+        manualBackup: `pg_dump -h ${host} -p ${port} -U ${username} -F c -b -v -f "rashidi_backup.dump" ${database}`,
+        manualRestore: `pg_restore -h ${host} -p ${port} -U ${username} -d ${database} -v "rashidi_backup.dump"`,
+        plainSqlBackup: `pg_dump -h ${host} -p ${port} -U ${username} -d ${database} -f rashidi_backup.sql`,
+        plainSqlRestore: `psql -h ${host} -p ${port} -U ${username} -d ${database} -f rashidi_backup.sql`,
       },
-      scheduledStrategy:
-        'Run Windows Task Scheduler or Linux crontab daily at 02:00 AM: pg_dump -h 127.0.0.1 -U postgres -d rashidi_erp -F c -f "backups/rashidi_$(date +%Y%m%d).dump"',
+      scheduledStrategy: 'Download backups to a safe external location. Files stored on the application server can be lost when the hosting service restarts or redeploys.',
     };
   }
 }
