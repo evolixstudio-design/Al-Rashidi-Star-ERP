@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import sharp from 'sharp';
 import { WhatsAppService } from './whatsapp.service.js';
 
@@ -9,6 +9,7 @@ describe('invoice image and reminder sending', () => {
   let web: any;
   let service: WhatsAppService;
   let file: any;
+  afterEach(() => vi.unstubAllGlobals());
 
   beforeEach(async () => {
     invoice = { id: 12, invoiceNumber: 'INV-TEST', status: 'POSTED', invoiceDate: '2026-11-14',
@@ -59,5 +60,78 @@ describe('invoice image and reminder sending', () => {
     const result = await service.sendInvoiceImage(12, 'PARTIAL_REMINDER', file, 'tester');
     expect(result).toMatchObject({ success: false, error: 'Link WhatsApp in Settings first.' });
     expect(audit.log).toHaveBeenCalledWith(expect.objectContaining({ action: 'WHATSAPP_IMAGE_SEND_FAILED' }));
+  });
+
+  it.each(['FULL_PAYMENT_RECEIPT', 'PARTIAL_PAYMENT_RECEIPT', 'PENDING_REMINDER'] as const)('builds an accurate %s caption', async (type) => {
+    if (type === 'FULL_PAYMENT_RECEIPT') { invoice.amountReceivedKd = 27; invoice.outstandingKd = 0; }
+    if (type === 'PENDING_REMINDER') { invoice.amountReceivedKd = 0; invoice.outstandingKd = 27; invoice.dueDate = '2026-12-01'; }
+    expect((await service.sendInvoiceImage(12, type, file, 'tester')).success).toBe(true);
+    const caption = web.sendImage.mock.calls[0][3];
+    expect(caption).toContain('27.000 K.D.');
+    expect(caption).not.toMatch(/undefined|NaN/);
+    if (type === 'PENDING_REMINDER') expect(caption).toContain('Due Date: 2026-12-01');
+  });
+
+  it('preserves the confirmed send when audit storage is unavailable', async () => {
+    audit.log.mockRejectedValue(new Error('Audit temporarily unavailable'));
+    expect((await service.sendInvoiceImage(12, 'PARTIAL_REMINDER', file, 'tester')).success).toBe(true);
+    await service.sendInvoiceImage(12, 'PARTIAL_REMINDER', file, 'tester');
+    expect(web.sendImage).toHaveBeenCalledOnce();
+  });
+
+  it('blocks concurrent requests but allows a new reminder after a payment changes', async () => {
+    let finish!: (id: string) => void;
+    web.sendImage.mockImplementationOnce(() => new Promise<string>((resolve) => { finish = resolve; }));
+    const first = service.sendInvoiceImage(12, 'PARTIAL_REMINDER', file, 'tester');
+    await vi.waitFor(() => expect(web.sendImage).toHaveBeenCalledOnce());
+    await expect(service.sendInvoiceImage(12, 'PARTIAL_REMINDER', file, 'tester')).rejects.toThrow('already being sent');
+    finish('first-send');
+    await first;
+    invoice.amountReceivedKd = 12;
+    invoice.outstandingKd = 15;
+    await service.sendInvoiceImage(12, 'PARTIAL_REMINDER', file, 'tester');
+    expect(web.sendImage).toHaveBeenCalledTimes(2);
+    expect(web.sendImage.mock.calls[1][3]).toContain('15.000 K.D.');
+  });
+
+  it.each(['missing', 'mime', 'large', 'small', 'invoice missing', 'phone missing', 'unpaid receipt'])('rejects %s input', async (reason) => {
+    if (reason === 'missing') file = null;
+    if (reason === 'mime') file.mimetype = 'text/html';
+    if (reason === 'large') file.size = 6 * 1024 * 1024;
+    if (reason === 'small') file.size = 50;
+    if (reason === 'invoice missing') repository.findOne.mockResolvedValue(null);
+    if (reason === 'phone missing') invoice.customer.phone = '';
+    await expect(service.sendInvoiceImage(12, reason === 'unpaid receipt' ? 'FULL_PAYMENT_RECEIPT' : 'PARTIAL_REMINDER', file, 'tester')).rejects.toThrow();
+    expect(web.sendImage).not.toHaveBeenCalled();
+  });
+
+  it('keeps the existing Cloud API path sending one image with a caption', async () => {
+    web.isEnabled = () => false;
+    const config = { get: (key: string, fallback: string) => ({ WHATSAPP_PHONE_NUMBER_ID: 'test-id', WHATSAPP_ACCESS_TOKEN: 'fake-test-token' })[key] || fallback };
+    service = new WhatsAppService(repository, audit, config as any, web);
+    const fetchMock = vi.fn().mockResolvedValueOnce(new Response(JSON.stringify({ id: 'media-123' })))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ messages: [{ id: 'cloud-message' }] })));
+    vi.stubGlobal('fetch', fetchMock);
+    expect(service.getStatus()).toMatchObject({ configured: true, transport: 'API' });
+    expect(await service.sendInvoiceImage(12, 'PARTIAL_REMINDER', file, 'tester')).toMatchObject({ success: true, messageId: 'cloud-message' });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    const payload = JSON.parse(fetchMock.mock.calls[1][1].body);
+    expect(payload).toMatchObject({ type: 'image', to: '96599887766', image: { id: 'media-123' } });
+    expect(payload.image.caption).toContain('Pending Amount: 17.000 K.D.');
+  });
+
+  it('reports unavailable integration instead of claiming it sent a message', async () => {
+    web.isEnabled = () => false;
+    expect(service.getStatus()).toMatchObject({ ready: false, configured: false });
+    expect(await service.sendInvoiceImage(12, 'PARTIAL_REMINDER', file, 'tester')).toMatchObject({ success: false, mode: 'FALLBACK' });
+  });
+
+  it.each([
+    ['9988 7766', '96599887766'], ['+965 9988-7766', '96599887766'], ['00965 99887766', '96599887766'],
+    ['+91 90000 00000', '919000000000'], ['0091 90000 00000', '919000000000'], ['+977 9800000000', '9779800000000'],
+  ])('preserves the country code in %s', async (phone, expected) => {
+    invoice.customer.phone = phone;
+    await service.sendInvoiceImage(12, 'PARTIAL_REMINDER', file, 'tester');
+    expect(web.sendImage.mock.calls[0][0]).toBe(expected);
   });
 });
