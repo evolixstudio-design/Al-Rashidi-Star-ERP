@@ -2,15 +2,12 @@ import {
   Injectable,
   BadRequestException,
   Logger,
-  ConflictException,
 } from '@nestjs/common';
-import sharp from 'sharp';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { SalesInvoice } from '../../database/entities/sales-invoice.entity.js';
 import { AuditService } from '../audit/audit.service.js';
-import { WhatsAppWebService } from './whatsapp-web.service.js';
 
 /**
  * WhatsApp message types for invoice-related communications.
@@ -26,7 +23,7 @@ export type WhatsAppMessageType =
  */
 export interface WhatsAppSendResult {
   success: boolean;
-  mode: 'API' | 'WEB' | 'FALLBACK';
+  mode: 'API' | 'FALLBACK';
   messageId?: string;
   mediaId?: string;
   error?: string;
@@ -38,15 +35,12 @@ export interface WhatsAppSendResult {
 @Injectable()
 export class WhatsAppService {
   private readonly logger = new Logger(WhatsAppService.name);
-  private readonly pendingSends = new Set<string>();
-  private readonly recentSends = new Map<string, { at: number; result: WhatsAppSendResult }>();
 
   constructor(
     @InjectRepository(SalesInvoice)
     private readonly invoiceRepo: Repository<SalesInvoice>,
     private readonly auditService: AuditService,
     private readonly configService: ConfigService,
-    private readonly web: WhatsAppWebService,
   ) {}
 
   /**
@@ -61,14 +55,11 @@ export class WhatsAppService {
   /**
    * Get WhatsApp integration status (safe for frontend — no secrets exposed).
    */
-  getStatus() {
-    if (this.web.isEnabled()) return { ...this.web.getStatus(), configured: true, transport: 'WEB' };
+  getStatus(): { configured: boolean; phoneNumberId?: string; apiVersion: string } {
     const phoneNumberId = this.configService.get<string>('WHATSAPP_PHONE_NUMBER_ID');
     const configured = this.isApiConfigured();
     return {
       configured,
-      ready: configured,
-      transport: configured ? 'API' : 'NONE',
       phoneNumberId: configured ? phoneNumberId : undefined,
       apiVersion: this.configService.get<string>('WHATSAPP_API_VERSION', 'v21.0'),
     };
@@ -129,12 +120,6 @@ export class WhatsAppService {
     if (imageFile.size < 1000) {
       throw new BadRequestException('Invoice image too small. File may be corrupt.');
     }
-    try {
-      const metadata = await sharp(imageFile.buffer, { limitInputPixels: 20_000_000 }).metadata();
-      if (metadata.format !== 'jpeg' || !metadata.width || !metadata.height) throw new Error('Invalid image');
-    } catch {
-      throw new BadRequestException('Invoice image must be a valid JPEG.');
-    }
 
     // 2. Load invoice with customer
     const invoice = await this.invoiceRepo.findOne({
@@ -144,10 +129,6 @@ export class WhatsAppService {
     if (!invoice) {
       throw new BadRequestException(`Invoice with ID ${invoiceId} not found.`);
     }
-    if (invoice.status !== 'POSTED') throw new BadRequestException('Only posted invoices can be sent.');
-    const isReminder = messageType === 'PENDING_REMINDER' || messageType === 'PARTIAL_REMINDER';
-    if (isReminder && Number(invoice.outstandingKd) <= 0) throw new BadRequestException('This invoice is paid. Send a receipt instead.');
-    if (messageType === 'FULL_PAYMENT_RECEIPT' && Number(invoice.outstandingKd) > 0) throw new BadRequestException('This invoice is not fully paid. Refresh it before sending.');
 
     // 3. Validate customer phone
     const phone = invoice.customer?.phone;
@@ -155,10 +136,10 @@ export class WhatsAppService {
       throw new BadRequestException('Customer phone number is missing. Cannot send WhatsApp message.');
     }
 
-    // Keep explicit international country codes; local eight-digit numbers default to Kuwait.
+    // 4. Normalize phone to 965 format
     const normalizedPhone = this.normalizeKuwaitPhone(phone);
     if (!normalizedPhone) {
-      throw new BadRequestException('Invalid customer phone number. For international numbers, include + or 00 followed by the country code and phone number. Eight-digit local numbers default to Kuwait.');
+      throw new BadRequestException('Invalid customer phone number format.');
     }
 
     // 5. Generate message text
@@ -168,7 +149,7 @@ export class WhatsAppService {
     const imageFilename = `Rashidi-Star-${invoiceNumber}.jpg`;
 
     // 6. Check if API is configured
-    if (!this.web.isEnabled() && !this.isApiConfigured()) {
+    if (!this.isApiConfigured()) {
       // Log the attempt but return fallback mode
       await this.auditService.log({
         entityType: 'WHATSAPP',
@@ -191,51 +172,42 @@ export class WhatsAppService {
         customerName,
         invoiceNumber,
         imageFilename,
-        error: 'WhatsApp is not connected. Ask the admin to link it in Settings → WhatsApp.',
+        error: 'WhatsApp Business API credentials are not configured. Please use the manual fallback.',
       };
     }
 
-    const key = JSON.stringify([invoiceId, messageType, normalizedPhone, invoice.totalAmountKd, invoice.amountReceivedKd, invoice.outstandingKd]);
-    // shortcut: duplicate protection lasts 60 seconds in this process; use durable receipts for hosted retries.
-    for (const [id, sent] of this.recentSends) if (Date.now() - sent.at > 60000) this.recentSends.delete(id);
-    const recent = this.recentSends.get(key);
-    if (recent) return recent.result;
-    if (this.pendingSends.has(key)) throw new ConflictException('This invoice is already being sent. Please wait.');
-    this.pendingSends.add(key);
-    const mode = this.web.isEnabled() ? 'WEB' : 'API';
+    // 7. Send via WhatsApp Cloud API
     try {
-      let mediaId: string | undefined;
-      let messageId: string;
-      if (mode === 'WEB') {
-        messageId = await this.web.sendImage(normalizedPhone, imageFile.buffer, imageFilename, messageText);
-      } else {
-        const phoneNumberId = this.configService.get<string>('WHATSAPP_PHONE_NUMBER_ID')!;
-        const accessToken = this.configService.get<string>('WHATSAPP_ACCESS_TOKEN')!;
-        const apiVersion = this.configService.get<string>('WHATSAPP_API_VERSION', 'v21.0');
+      const phoneNumberId = this.configService.get<string>('WHATSAPP_PHONE_NUMBER_ID')!;
+      const accessToken = this.configService.get<string>('WHATSAPP_ACCESS_TOKEN')!;
+      const apiVersion = this.configService.get<string>('WHATSAPP_API_VERSION', 'v21.0');
 
-        // 7a. Upload image to WhatsApp Media API
-        mediaId = await this.uploadMediaToWhatsApp(
-          imageFile.buffer,
-          imageFilename,
-          phoneNumberId,
-          accessToken,
-          apiVersion,
-        );
+      // 7a. Upload image to WhatsApp Media API
+      const mediaId = await this.uploadMediaToWhatsApp(
+        imageFile.buffer,
+        imageFilename,
+        phoneNumberId,
+        accessToken,
+        apiVersion,
+      );
 
-        // 7b. Send image message
-        messageId = await this.sendWhatsAppImageMessage(
-          normalizedPhone,
-          mediaId,
-          phoneNumberId,
-          accessToken,
-          apiVersion,
-          messageText,
-        );
-      }
+      // 7b. Send image message
+      const imageMessageId = await this.sendWhatsAppImageMessage(
+        normalizedPhone,
+        mediaId,
+        phoneNumberId,
+        accessToken,
+        apiVersion,
+      );
 
-      const result: WhatsAppSendResult = { success: true, mode, messageId, mediaId, customerName, invoiceNumber, imageFilename };
-      // Save before auditing: an audit outage must never cause the customer to receive a duplicate.
-      this.recentSends.set(key, { at: Date.now(), result });
+      // 7c. Send text message
+      const textMessageId = await this.sendWhatsAppTextMessage(
+        normalizedPhone,
+        messageText,
+        phoneNumberId,
+        accessToken,
+        apiVersion,
+      );
 
       // 8. Audit success
       await this.auditService.log({
@@ -250,11 +222,20 @@ export class WhatsAppService {
           messageType,
           imageFilename,
           mediaId,
-          messageId,
-          mode,
+          imageMessageId,
+          textMessageId,
         },
-      }).catch(() => this.logger.error(`WhatsApp sent for ${invoiceNumber}, but its audit entry could not be saved.`));
-      return result;
+      });
+
+      return {
+        success: true,
+        mode: 'API',
+        messageId: textMessageId,
+        mediaId,
+        customerName,
+        invoiceNumber,
+        imageFilename,
+      };
     } catch (err: any) {
       this.logger.error(`WhatsApp send failed for ${invoiceNumber}: ${err.message}`, err.stack);
 
@@ -276,14 +257,12 @@ export class WhatsAppService {
 
       return {
         success: false,
-        mode,
+        mode: 'API',
         customerName,
         invoiceNumber,
         imageFilename,
         error: err.message || 'WhatsApp API send failed.',
       };
-    } finally {
-      this.pendingSends.delete(key);
     }
   }
 
@@ -336,7 +315,6 @@ export class WhatsAppService {
     phoneNumberId: string,
     accessToken: string,
     apiVersion: string,
-    caption: string,
   ): Promise<string> {
     const url = `https://graph.facebook.com/${apiVersion}/${phoneNumberId}/messages`;
 
@@ -346,7 +324,6 @@ export class WhatsAppService {
       type: 'image',
       image: {
         id: mediaId,
-        caption,
       },
     };
 
@@ -365,9 +342,44 @@ export class WhatsAppService {
     }
 
     const data = await response.json() as { messages: Array<{ id: string }> };
-    const id = data.messages?.[0]?.id;
-    if (!id) throw new Error('WhatsApp did not confirm the send. Check the chat before trying again.');
-    return id;
+    return data.messages?.[0]?.id || 'unknown';
+  }
+
+  /**
+   * Send a plain text message to a WhatsApp number.
+   */
+  private async sendWhatsAppTextMessage(
+    phone: string,
+    text: string,
+    phoneNumberId: string,
+    accessToken: string,
+    apiVersion: string,
+  ): Promise<string> {
+    const url = `https://graph.facebook.com/${apiVersion}/${phoneNumberId}/messages`;
+
+    const body = {
+      messaging_product: 'whatsapp',
+      to: phone,
+      type: 'text',
+      text: { body: text },
+    };
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
+    });
+
+    if (!response.ok) {
+      const errorBody = await response.text();
+      throw new Error(`WhatsApp text send failed (${response.status}): ${errorBody}`);
+    }
+
+    const data = await response.json() as { messages: Array<{ id: string }> };
+    return data.messages?.[0]?.id || 'unknown';
   }
 
   // ──────────────────────────────────────────────────────────────
@@ -523,13 +535,17 @@ export class WhatsAppService {
   // ──────────────────────────────────────────────────────────────
 
   private normalizeKuwaitPhone(phone: string): string {
-    const value = phone.trim();
-    if (!/^[+\d\s().-]+$/.test(value)) return '';
-    const international = /^(\+|00)/.test(value);
-    let clean = value.replace(/[^0-9]/g, '');
-    if (clean.startsWith('00')) clean = clean.slice(2);
-    if (!international && clean.length === 8) clean = `965${clean}`;
-    const valid = international ? /^[1-9]\d{1,14}$/.test(clean) : /^[1-9]\d{7,14}$/.test(clean);
-    return valid ? clean : '';
+    let clean = phone.replace(/[^0-9]/g, '');
+    if (!clean) return '';
+
+    if (clean.startsWith('00965')) {
+      clean = clean.substring(2);
+    } else if (clean.startsWith('965')) {
+      // Already has 965 prefix
+    } else if (clean.length === 8) {
+      clean = `965${clean}`;
+    }
+
+    return clean;
   }
 }

@@ -8,31 +8,15 @@ import {
   Body,
   Request,
   BadRequestException,
-  Header,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { WhatsAppService, type WhatsAppMessageType } from './whatsapp.service.js';
-import { WhatsAppWebService } from './whatsapp-web.service.js';
-import { AdminOnlyGuard } from '../../common/guards/admin-only.guard.js';
 
 @Controller('whatsapp')
 @UseGuards(AuthGuard('jwt'))
 export class WhatsAppController {
-  constructor(private readonly whatsappService: WhatsAppService, private readonly web: WhatsAppWebService) {}
-
-  @Get('connection')
-  @Header('Cache-Control', 'no-store')
-  @UseGuards(AdminOnlyGuard)
-  getConnection() { return this.web.getStatus(true); }
-
-  @Post('connect')
-  @UseGuards(AdminOnlyGuard)
-  connect() { return this.web.connect(); }
-
-  @Post('disconnect')
-  @UseGuards(AdminOnlyGuard)
-  disconnect() { return this.web.disconnect(); }
+  constructor(private readonly whatsappService: WhatsAppService) {}
 
   /**
    * GET /api/whatsapp/status
@@ -78,8 +62,8 @@ export class WhatsAppController {
       throw new BadRequestException('invoiceId is required.');
     }
 
-    const invoiceId = Number(invoiceIdStr);
-    if (!Number.isSafeInteger(invoiceId) || invoiceId <= 0) {
+    const invoiceId = parseInt(invoiceIdStr, 10);
+    if (isNaN(invoiceId) || invoiceId <= 0) {
       throw new BadRequestException('Invalid invoiceId.');
     }
 

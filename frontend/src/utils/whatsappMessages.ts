@@ -86,18 +86,23 @@ export function formatPaymentMethod(method?: string | null): string {
 }
 
 /**
- * Preserve international country codes; default eight-digit local numbers to Kuwait.
+ * Normalize phone numbers to Kuwait international format (965XXXXXXXX)
  * Strips all spaces, brackets, hyphens, plus signs, and leading 00s.
  */
 export function normalizeKuwaitPhone(phone?: string | null): string {
-  const value = String(phone || '').trim();
-  if (!/^[+\d\s().-]+$/.test(value)) return '';
-  const international = /^(\+|00)/.test(value);
-  let clean = value.replace(/[^0-9]/g, '');
-  if (clean.startsWith('00')) clean = clean.slice(2);
-  if (!international && clean.length === 8) clean = `965${clean}`;
-  const valid = international ? /^[1-9]\d{1,14}$/.test(clean) : /^[1-9]\d{7,14}$/.test(clean);
-  return valid ? clean : '';
+  if (!phone) return '';
+  let clean = String(phone).replace(/[^0-9]/g, '');
+  if (!clean) return '';
+
+  if (clean.startsWith('00965')) {
+    clean = clean.substring(2);
+  } else if (clean.startsWith('965')) {
+    // Already has 965 prefix
+  } else if (clean.length === 8) {
+    clean = `965${clean}`;
+  }
+
+  return clean;
 }
 
 /**

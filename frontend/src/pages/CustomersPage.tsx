@@ -27,8 +27,7 @@ import { normalizeSearchText } from '../utils/searchUtils';
 import { CustomerLedgerModal } from '../components/customers/CustomerLedgerModal';
 import { AdjustOpeningBalanceModal } from '../components/customers/AdjustOpeningBalanceModal';
 import { ReceivePaymentModal } from '../components/payments/ReceivePaymentModal';
-import { useInvoiceWhatsApp } from '../hooks/useInvoiceWhatsApp';
-import { WhatsAppSendFeedback } from '../components/common/WhatsAppSendFeedback';
+import { openWhatsAppWithText } from '../services/whatsappService';
 import { useActionMenu } from '../hooks/useActionMenu';
 
 /* ───────────────────── Types ───────────────────── */
@@ -62,7 +61,6 @@ interface PendingInvoiceItem {
 
 export const CustomersPage: React.FC = () => {
   const navigate = useNavigate();
-  const whatsapp = useInvoiceWhatsApp();
 
   /* ── State ── */
   const [customers, setCustomers] = useState<CustomerItem[]>([]);
@@ -282,10 +280,23 @@ export const CustomersPage: React.FC = () => {
 
   /* ── WhatsApp Reminder Link ── */
   const sendWhatsAppReminder = (c: CustomerItem) => {
-    void whatsapp.sendCustomer(c.id, {
-      paymentData: { customerName: c.name, customerPhone: c.phone, outstandingAmount: c.totalOutstandingKd ?? c.totalOutstanding },
-      messageType: 'OUTSTANDING_BALANCE_REMINDER',
-    });
+    if (!c.phone) return;
+    const totalPaid = Number(c.totalReceivedKd ?? c.totalReceived ?? 0);
+    const outstanding = Number(c.totalOutstandingKd ?? c.totalOutstanding ?? 0);
+    const totalSales = Number(c.totalSalesKd ?? c.totalSales ?? (totalPaid + outstanding));
+    const isPartial = totalPaid > 0.0001;
+
+    openWhatsAppWithText(
+      {
+        customerName: c.name,
+        customerPhone: c.phone,
+        invoiceTotal: totalSales,
+        totalPaid: totalPaid,
+        outstandingAmount: outstanding,
+        paymentStatus: isPartial ? 'PARTIAL' : 'PENDING',
+      },
+      isPartial ? 'PARTIAL_REMINDER' : 'PENDING_REMINDER'
+    );
   };
 
   /* ── Filtering & Metrics ── */
@@ -335,7 +346,6 @@ export const CustomersPage: React.FC = () => {
   return (
     <div className="w-full space-y-6">
       {/* Toast */}
-      <WhatsAppSendFeedback {...whatsapp} />
       {toast && (
         <div className="fixed bottom-6 right-6 z-50 bg-emerald-600 text-white px-5 py-3 rounded-xl shadow-xl flex items-center gap-2 text-sm font-semibold animate-in fade-in slide-in-from-bottom-4">
           <CheckCircle2 className="w-5 h-5" />
@@ -678,7 +688,6 @@ export const CustomersPage: React.FC = () => {
                               {hasOutstanding && hasPhone && (
                                 <button
                                   type="button"
-                                  disabled={whatsapp.busy}
                                   onClick={() => {
                                     sendWhatsAppReminder(c);
                                     closeMenu();
@@ -686,7 +695,7 @@ export const CustomersPage: React.FC = () => {
                                   className="w-full px-3.5 py-2 text-xs font-semibold text-emerald-700 hover:bg-emerald-50 flex items-center gap-2 cursor-pointer"
                                 >
                                   <MessageCircle className="w-3.5 h-3.5 text-emerald-600" />
-                                  <span>{whatsapp.busy ? 'Sending…' : 'Send Reminder'}</span>
+                                  <span>Send Reminder</span>
                                 </button>
                               )}
 
@@ -819,7 +828,7 @@ export const CustomersPage: React.FC = () => {
                      <Pencil className="w-4 h-4 text-amber-600" /> Edit
                    </button>
                    {hasOutstanding && hasPhone && (
-                     <button disabled={whatsapp.busy} onClick={() => sendWhatsAppReminder(c)} className="flex flex-col items-center justify-center gap-1 p-2.5 min-h-touch bg-emerald-50 hover:bg-emerald-100 rounded-xl text-xs font-semibold text-emerald-700 transition-colors">
+                     <button onClick={() => sendWhatsAppReminder(c)} className="flex flex-col items-center justify-center gap-1 p-2.5 min-h-touch bg-emerald-50 hover:bg-emerald-100 rounded-xl text-xs font-semibold text-emerald-700 transition-colors">
                        <MessageCircle className="w-4 h-4 text-emerald-600" /> Reminder
                      </button>
                    )}

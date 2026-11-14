@@ -1,6 +1,4 @@
 import React, { useState, useRef } from 'react';
-import { useInvoiceWhatsApp } from '../../hooks/useInvoiceWhatsApp';
-import { WhatsAppSendFeedback } from './WhatsAppSendFeedback';
 import { Printer, MessageCircle, Download, Check, BellRing, History, Ban, Image as ImageIcon } from 'lucide-react';
 import { downloadFile } from '../../utils/downloadFile';
 import { TransactionAuditModal } from './TransactionAuditModal';
@@ -12,8 +10,8 @@ import {
 import {
   generateInvoiceJpg,
   downloadJpg,
-  openWhatsAppWithText,
   resolveMessageType,
+  openWhatsAppChat,
 } from '../../services/whatsappService';
 
 export type { InvoiceData, InvoiceLineItem };
@@ -31,7 +29,6 @@ export const RashidiStarInvoice: React.FC<RashidiStarInvoiceProps> = ({
   onPrint,
   onCancel,
 }) => {
-  const whatsapp = useInvoiceWhatsApp();
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const [pdfSuccessMessage, setPdfSuccessMessage] = useState<string | null>(null);
@@ -49,6 +46,22 @@ export const RashidiStarInvoice: React.FC<RashidiStarInvoiceProps> = ({
       : amountPaid > 0
       ? 'PARTIALLY PAID'
       : 'PENDING';
+
+  // Build payment data for text message generation
+  const buildPaymentData = () => ({
+    customerName: invoice.customer?.name,
+    customerPhone: invoice.customer?.phone,
+    date: invoice.invoiceDate,
+    invoiceDate: invoice.invoiceDate,
+    dueDate: invoice.dueDate,
+    invoiceNumber: invoice.invoiceNumber,
+    invoiceTotal: invoiceTotal,
+    totalPaid: amountPaid,
+    amountReceived: amountPaid,
+    outstandingAmount: pendingAmount,
+    paymentMethod: invoice.paymentType,
+    paymentStatus: paymentState,
+  });
 
   // High-Resolution Fixed A4 PDF Generator using html2canvas & jsPDF
   const generatePdfBlob = async (): Promise<{ blob: Blob; filename: string } | null> => {
@@ -118,25 +131,22 @@ export const RashidiStarInvoice: React.FC<RashidiStarInvoiceProps> = ({
     }
   };
 
-  const paymentData = {
-    customerName: invoice.customer?.name,
-    customerPhone: invoice.customer?.phone,
-    invoiceNumber: invoice.invoiceNumber,
-    invoiceDate: invoice.invoiceDate,
-    invoiceTotal,
-    totalPaid: amountPaid,
-    outstandingAmount: pendingAmount,
-    dueDate: invoice.dueDate,
-    paymentMethod: invoice.paymentType,
-    paymentStatus: paymentState,
-  };
-
-  const handleWhatsAppAction = (isReminder = false) => {
-    if (!invoice.id) {
-      setPdfSuccessMessage('Save the invoice before sending it to WhatsApp.');
+  // Centralized WhatsApp Action
+  const handleWhatsAppAction = async (isReminderOnly = false) => {
+    if (!invoice.customer?.phone) {
+      setPdfSuccessMessage('Customer phone number is missing. Cannot send WhatsApp message.');
+      setTimeout(() => setPdfSuccessMessage(null), 5000);
       return;
     }
-    void whatsapp.sendInvoice(invoice.id, isReminder, { paymentData, messageType: resolveMessageType(paymentState, isReminder) });
+
+    try {
+      const messageType = resolveMessageType(paymentState, isReminderOnly);
+      const paymentData = buildPaymentData();
+      await openWhatsAppChat(invoice.invoiceNumber, paymentData, messageType);
+    } catch (err: any) {
+      setPdfSuccessMessage(err.message || 'WhatsApp action failed.');
+      setTimeout(() => setPdfSuccessMessage(null), 5000);
+    }
   };
 
   const handlePrint = () => {
@@ -408,7 +418,6 @@ export const RashidiStarInvoice: React.FC<RashidiStarInvoiceProps> = ({
             {/* WhatsApp Customer */}
             {invoice.invoiceStatus !== 'CANCELLED' && (
               <button
-                disabled={whatsapp.busy}
                 onClick={() => handleWhatsAppAction(false)}
                 style={{
                   display: 'flex',
@@ -423,17 +432,16 @@ export const RashidiStarInvoice: React.FC<RashidiStarInvoiceProps> = ({
                   fontWeight: 700,
                   cursor: 'pointer',
                 }}
-                title={whatsapp.directAvailable ? 'Send invoice image and receipt text together via linked WhatsApp' : 'Open a prepared WhatsApp receipt. Attach the invoice image manually if needed.'}
+                title="Send pre-filled WhatsApp message"
               >
                 <MessageCircle size={15} />
-                <span>{whatsapp.busy ? 'Sending…' : 'WhatsApp Customer'}</span>
+                <span>WhatsApp Customer</span>
               </button>
             )}
 
             {/* Payment Reminder */}
             {invoice.invoiceStatus !== 'CANCELLED' && paymentState !== 'FULLY PAID' && (
               <button
-                disabled={whatsapp.busy}
                 onClick={() => handleWhatsAppAction(true)}
                 style={{
                   display: 'flex',
@@ -448,19 +456,10 @@ export const RashidiStarInvoice: React.FC<RashidiStarInvoiceProps> = ({
                   fontWeight: 700,
                   cursor: 'pointer',
                 }}
-                title={whatsapp.directAvailable ? 'Send invoice image and payment reminder together via linked WhatsApp' : 'Open a prepared WhatsApp payment reminder. Attach the invoice image manually if needed.'}
+                title="Send pre-filled payment reminder"
               >
                 <BellRing size={15} />
-                <span>{whatsapp.busy ? 'Sending…' : 'Payment Reminder'}</span>
-              </button>
-            )}
-
-            {whatsapp.directAvailable && invoice.invoiceStatus !== 'CANCELLED' && invoice.customer?.phone && (
-              <button type="button" disabled={whatsapp.busy}
-                onClick={() => openWhatsAppWithText(paymentData, resolveMessageType(paymentState, paymentState !== 'FULLY PAID'))}
-                style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#fff', color: '#166534', border: '1px solid #16a34a', borderRadius: 8, padding: '7px 14px', fontSize: '12.5px', fontWeight: 700, cursor: 'pointer' }}
-                title="Open a prepared WhatsApp message without the QR connection. Text only; attach an image manually if needed.">
-                <MessageCircle size={15} /><span>WhatsApp (text only)</span>
+                <span>Payment Reminder</span>
               </button>
             )}
 
@@ -535,7 +534,6 @@ export const RashidiStarInvoice: React.FC<RashidiStarInvoiceProps> = ({
         </div>
 
         {/* PDF/Photo Toast */}
-        <WhatsAppSendFeedback {...whatsapp} />
         {pdfSuccessMessage && (
           <div
             style={{

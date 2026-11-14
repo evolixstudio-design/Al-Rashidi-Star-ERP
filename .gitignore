@@ -27,6 +27,3 @@ pnpm-debug.log*
 *.local
 .neon
 new_credentials.txt
-.wwebjs_auth/
-.wwebjs_cache/
-coverage/

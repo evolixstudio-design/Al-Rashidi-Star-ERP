@@ -4,7 +4,6 @@ import { downloadFile } from '../utils/downloadFile';
 import { useAuth } from '../context/AuthContext';
 import { useTranslations } from '../hooks/useTranslations';
 import { LanguageSwitcher } from '../components/common/LanguageSwitcher';
-import { WhatsAppConnection } from '../components/common/WhatsAppConnection';
 import {
   Building,
   ShieldCheck,
@@ -28,13 +27,13 @@ export const SettingsPage: React.FC = () => {
   // Backup access restricted strictly to Evolixstudio@gmail.com / ADMIN
   const isAdmin = (user?.username || '').toLowerCase() === 'evolixstudio@gmail.com' || user?.role === 'ADMIN';
 
-  const [activeTab, setActiveTab] = useState<'company' | 'audit' | 'backup' | 'whatsapp'>('company');
+  const [activeTab, setActiveTab] = useState<'company' | 'audit' | 'backup'>('company');
   const [loading, setLoading] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
 
   // If a non-admin tries to view backup tab, reset to company
   useEffect(() => {
-    if (!isAdmin && (activeTab === 'backup' || activeTab === 'whatsapp')) {
+    if (!isAdmin && activeTab === 'backup') {
       setActiveTab('company');
     }
   }, [isAdmin, activeTab]);
@@ -220,7 +219,7 @@ export const SettingsPage: React.FC = () => {
         </div>
 
         {/* Tab Toggle */}
-        <div className="flex flex-wrap items-center bg-slate-200 p-1 rounded-lg border border-slate-300 self-start sm:self-auto">
+        <div className="flex items-center bg-slate-200 p-1 rounded-lg border border-slate-300 self-start sm:self-auto">
           <button
             type="button"
             onClick={() => setActiveTab('company')}
@@ -249,11 +248,6 @@ export const SettingsPage: React.FC = () => {
             <span>{t.settings.auditTrail} ({auditTotal})</span>
           </button>
           {isAdmin && (
-            <button type="button" onClick={() => setActiveTab('whatsapp')} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md font-semibold text-xs transition-all ${activeTab === 'whatsapp' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-700 hover:text-slate-900'}`}>
-              <MessageCircle className="w-4 h-4" /><span>WhatsApp</span>
-            </button>
-          )}
-          {isAdmin && (
             <button
               type="button"
               onClick={() => {
@@ -278,8 +272,6 @@ export const SettingsPage: React.FC = () => {
           <span>{t.settings.saveSuccess}</span>
         </div>
       )}
-
-      {isAdmin && activeTab === 'whatsapp' && <WhatsAppConnection />}
 
       {/* Tab 1: Company Profile Form */}
       {activeTab === 'company' && (
@@ -410,6 +402,35 @@ export const SettingsPage: React.FC = () => {
             </div>
           </form>
 
+          {/* WhatsApp Direct Integration Status */}
+          <div className="bg-white rounded-xl p-4 sm:p-5 shadow-xs border border-slate-300">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-lg bg-emerald-100 text-emerald-700 border border-emerald-200 flex items-center justify-center flex-shrink-0">
+                  <MessageCircle className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900">
+                    WhatsApp Direct Integration (wa.me / WhatsApp Web)
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    Direct plain-text messaging for Payment Receipts and Reminders. Opens wa.me / WhatsApp Web pre-filled.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 text-xs font-bold border border-emerald-200">
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  Active &amp; Ready
+                </span>
+              </div>
+            </div>
+            <div className="mt-3 text-xs text-slate-600 bg-slate-50 p-2.5 rounded-lg border border-slate-200 flex items-center gap-2">
+              <span className="font-semibold text-slate-700">Simple Flow:</span>
+              <span>Normalized Kuwait phone numbers (+965), clean plain text, zero API setup required.</span>
+            </div>
+          </div>
         </div>
       )}
 

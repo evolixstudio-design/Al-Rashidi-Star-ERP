@@ -23,8 +23,7 @@ import {
   ArrowUpRight,
   FileText,
 } from 'lucide-react';
-import { useInvoiceWhatsApp } from '../hooks/useInvoiceWhatsApp';
-import { WhatsAppSendFeedback } from '../components/common/WhatsAppSendFeedback';
+import { openWhatsAppWithText } from '../services/whatsappService';
 
 /* ───────────────────── Types ───────────────────── */
 
@@ -122,7 +121,6 @@ export const HomePage: React.FC = () => {
   const { user } = useAuth();
   const { t } = useTranslations();
   const navigate = useNavigate();
-  const whatsapp = useInvoiceWhatsApp();
 
   const [company, setCompany] = useState<{ nameEn: string; nameAr: string } | null>(null);
   const [currentTime, setCurrentTime] = useState<string>('');
@@ -306,10 +304,20 @@ export const HomePage: React.FC = () => {
 
   // WhatsApp Reminder Handler
   const openWhatsAppReminder = (cust: PendingCustomer) => {
-    void whatsapp.sendCustomer(cust.id, {
-      paymentData: { customerName: cust.name, customerPhone: cust.phone, outstandingAmount: cust.outstandingKd },
-      messageType: 'OUTSTANDING_BALANCE_REMINDER',
-    });
+    if (!cust.phone) return;
+    const isPartial = cust.paymentStatus === 'PARTIAL';
+
+    openWhatsAppWithText(
+      {
+        customerName: cust.name,
+        customerPhone: cust.phone,
+        invoiceNumber: cust.latestInvoiceNumber,
+        invoiceDate: cust.oldestUnpaidDate,
+        outstandingAmount: cust.outstandingKd,
+        paymentStatus: cust.paymentStatus,
+      },
+      isPartial ? 'PARTIAL_REMINDER' : 'PENDING_REMINDER'
+    );
   };
 
   // Trend Chart Calculations
@@ -345,7 +353,6 @@ export const HomePage: React.FC = () => {
 
   return (
     <div className="space-y-6 pb-14 antialiased text-sm">
-      <WhatsAppSendFeedback {...whatsapp} />
       {/* ───────────────────── 1. WELCOME / OWNER SESSION ───────────────────── */}
       <div className="bg-white rounded-2xl p-5 sm:p-6 shadow-xs border border-slate-200 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
@@ -887,10 +894,9 @@ export const HomePage: React.FC = () => {
                       {cust.phone && (
                         <button
                           type="button"
-                          disabled={whatsapp.busy}
                           onClick={() => openWhatsAppReminder(cust)}
                           className="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-lg transition-colors cursor-pointer flex items-center gap-1 shadow-xs"
-                          title="Send unpaid invoice images with reminder text via linked WhatsApp"
+                          title="Send WhatsApp Reminder"
                         >
                           <MessageCircle className="w-3.5 h-3.5" />
                           <span>WA</span>

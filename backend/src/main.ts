@@ -7,7 +7,6 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
     logger: ['error', 'warn', 'log'],
   });
-  app.enableShutdownHooks();
 
   // Enable CORS for frontend Vite dev server (usually localhost:5173)
   app.enableCors({

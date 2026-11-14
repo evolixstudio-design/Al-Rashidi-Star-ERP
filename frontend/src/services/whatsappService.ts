@@ -1,14 +1,11 @@
 /**
  * Rashidi Star - Centralized WhatsApp Service
  *
- * Invoice images are sent with their receipt/reminder caption through the backend.
+ * WhatsApp action is strictly text-only via wa.me.
+ * Invoice image download is a separate action.
  */
 import api from './api';
-import { createElement } from 'react';
-import { createRoot } from 'react-dom/client';
-import { flushSync } from 'react-dom';
 import { downloadFile } from '../utils/downloadFile';
-import type { InvoiceData } from '../components/common/RashidiStarInvoiceSheet';
 import {
   buildWhatsAppUrl,
   type WhatsAppPaymentData,
@@ -21,10 +18,6 @@ export interface WhatsAppStatus {
   phoneNumberId?: string;
   message?: string;
   qr?: string;
-  enabled?: boolean;
-  state?: string;
-  phone?: string;
-  transport?: 'WEB' | 'API' | 'NONE';
 }
 
 export type WhatsAppMessageType = PaymentWhatsAppType;
@@ -208,56 +201,5 @@ export function openWhatsAppWithText(
  * Check WhatsApp integration status for Settings page.
  */
 export async function checkWhatsAppStatus(): Promise<WhatsAppStatus> {
-  return (await api.get('/whatsapp/status')).data;
-}
-
-export async function sendInvoiceWhatsApp(invoiceId: number, isReminder: boolean): Promise<string> {
-  const status = await checkWhatsAppStatus();
-  if (!status.ready) throw new Error('WhatsApp is not connected. Ask the admin to link it in Settings → WhatsApp.');
-  const invoice: InvoiceData = (await api.get(`/sales/${invoiceId}`)).data;
-  if (invoice.invoiceStatus !== 'POSTED') throw new Error('Only posted invoices can be sent.');
-  if (!invoice.customer?.phone) throw new Error('Add the customer phone number before sending.');
-  const outstanding = Number(invoice.amountOutstandingKd);
-  if (isReminder && outstanding <= 0) throw new Error('This invoice is paid. Send a receipt instead.');
-  const paymentState = outstanding <= 0 ? 'FULLY PAID' : Number(invoice.amountReceivedKd) > 0 ? 'PARTIALLY PAID' : 'PENDING';
-
-  const { RashidiStarInvoiceSheet } = await import('../components/common/RashidiStarInvoiceSheet');
-  const host = document.createElement('div');
-  host.style.cssText = 'position:fixed;left:-10000px;top:0;width:794px;background:white;pointer-events:none';
-  host.setAttribute('aria-hidden', 'true');
-  document.body.appendChild(host);
-  const root = createRoot(host);
-  try {
-    flushSync(() => root.render(createElement(RashidiStarInvoiceSheet, { invoice, isExport: true })));
-    const element = host.firstElementChild as HTMLElement | null;
-    const image = element && await generateInvoiceJpg(element, invoice.invoiceNumber);
-    if (!image) throw new Error('Invoice image could not be generated. Nothing was sent.');
-    const form = new FormData();
-    form.append('invoiceId', String(invoiceId));
-    form.append('messageType', resolveMessageType(paymentState, isReminder));
-    form.append('invoiceImage', image.blob, image.filename);
-    const { data } = await api.post('/whatsapp/send-invoice', form, { headers: { 'Content-Type': undefined }, timeout: 120000 });
-    if (!data.success) throw new Error(data.error || 'WhatsApp could not send this invoice.');
-    return `Invoice ${invoice.invoiceNumber} image and ${isReminder ? 'reminder' : 'receipt'} sent to WhatsApp.`;
-  } finally {
-    root.unmount();
-    host.remove();
-  }
-}
-
-export async function sendCustomerInvoiceReminders(customerId: number, onProgress: (text: string) => void): Promise<string> {
-  const { data: invoices } = await api.get<{ id: number; invoiceNumber: string }[]>(`/customers/${customerId}/pending-invoices`);
-  if (!invoices.length) throw new Error('No unpaid invoice is available to attach. Opening balances have no invoice image.');
-  let sent = 0;
-  for (const invoice of invoices) {
-    onProgress(`Sending invoice ${sent + 1} of ${invoices.length}…`);
-    try {
-      await sendInvoiceWhatsApp(invoice.id, true);
-      sent++;
-    } catch (error) {
-      const reason = error instanceof Error ? error.message : 'WhatsApp send failed.';
-      throw new Error(`${sent} of ${invoices.length} sent. Stopped at ${invoice.invoiceNumber}: ${reason}`);
-    }
-  }
-  return `${sent} invoice image${sent === 1 ? '' : 's'} with reminder text sent to WhatsApp.`;
+  return { ready: true, configured: true, message: 'WhatsApp Direct (wa.me) Active' };
 }
