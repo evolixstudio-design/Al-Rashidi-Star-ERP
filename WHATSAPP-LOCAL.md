@@ -1,6 +1,6 @@
 # Local WhatsApp invoice sharing
 
-The QR connection is disabled in production and uses only this PC. No database migration is required. The existing hosted plans are unchanged.
+The QR connection is disabled in production and uses only this PC. On the live site, WhatsApp buttons directly open the prepared text message using the existing manual flow; attach an invoice image manually when needed. No database migration is required. The existing hosted plans are unchanged.
 
 In `backend/.env.local`, alongside the **local** database URL, set:
 

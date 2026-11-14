@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { sendCustomerInvoiceReminders, sendInvoiceWhatsApp, type WhatsAppMessageType } from '../services/whatsappService';
+import { openWhatsAppWithText, sendCustomerInvoiceReminders, sendInvoiceWhatsApp, type WhatsAppMessageType } from '../services/whatsappService';
 import type { WhatsAppPaymentData } from '../utils/whatsappMessages';
 
 export interface WhatsAppFallback {
@@ -12,6 +12,13 @@ export function useInvoiceWhatsApp() {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
   const [fallback, setFallback] = useState<WhatsAppFallback | null>(null);
+  // Render Free cannot preserve a QR session; hosted buttons use the manual text flow.
+  const directAvailable = import.meta.env.DEV;
+  const openManual = (draft: WhatsAppFallback) => {
+    openWhatsAppWithText(draft.paymentData, draft.messageType);
+    setFallback(null);
+    setMessage('WhatsApp draft opened. Review the message and press Send in WhatsApp.');
+  };
   const run = async (action: () => Promise<string>, manualFallback: WhatsAppFallback) => {
     if (sending.current) return;
     sending.current = true;
@@ -30,8 +37,8 @@ export function useInvoiceWhatsApp() {
     }
   };
   return {
-    busy, message, fallback,
-    sendInvoice: (id: number, reminder: boolean, manualFallback: WhatsAppFallback) => run(() => sendInvoiceWhatsApp(id, reminder), manualFallback),
-    sendCustomer: (id: number, manualFallback: WhatsAppFallback) => run(() => sendCustomerInvoiceReminders(id, setMessage), manualFallback),
+    busy, message, fallback, directAvailable,
+    sendInvoice: (id: number, reminder: boolean, manualFallback: WhatsAppFallback) => directAvailable ? run(() => sendInvoiceWhatsApp(id, reminder), manualFallback) : openManual(manualFallback),
+    sendCustomer: (id: number, manualFallback: WhatsAppFallback) => directAvailable ? run(() => sendCustomerInvoiceReminders(id, setMessage), manualFallback) : openManual(manualFallback),
   };
 }

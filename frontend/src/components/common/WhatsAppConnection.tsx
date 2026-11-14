@@ -10,6 +10,7 @@ export function WhatsAppConnection() {
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
+    if (!import.meta.env.DEV) return;
     let active = true;
     const refresh = async () => {
       try {
@@ -43,6 +44,14 @@ export function WhatsAppConnection() {
   };
 
   const starting = ['STARTING', 'AUTHENTICATING', 'QR'].includes(status?.state || '');
+  if (!import.meta.env.DEV) return (
+    <section className="bg-white rounded-xl p-4 sm:p-5 shadow-xs border border-slate-300 space-y-3" aria-labelledby="whatsapp-connection-title">
+      <h2 id="whatsapp-connection-title" className="font-bold text-slate-900">WhatsApp sharing</h2>
+      <p className="text-sm text-slate-700">WhatsApp buttons open a prepared receipt or reminder for you to review and send. No ERP QR connection is needed.</p>
+      <p className="text-sm text-slate-700">To include an invoice image, choose Download Invoice Image on the invoice and attach it in WhatsApp.</p>
+      <p className="text-xs text-slate-600">Direct image-and-text sending through a linked QR session is available on localhost. The current hosted plan uses manual WhatsApp sharing.</p>
+    </section>
+  );
   return (
     <section className="bg-white rounded-xl p-4 sm:p-5 shadow-xs border border-slate-300 space-y-4" aria-labelledby="whatsapp-connection-title">
       <div className="flex items-center gap-3">

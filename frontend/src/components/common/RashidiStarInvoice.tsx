@@ -423,7 +423,7 @@ export const RashidiStarInvoice: React.FC<RashidiStarInvoiceProps> = ({
                   fontWeight: 700,
                   cursor: 'pointer',
                 }}
-                title="Send invoice image and receipt text together via linked WhatsApp"
+                title={whatsapp.directAvailable ? 'Send invoice image and receipt text together via linked WhatsApp' : 'Open a prepared WhatsApp receipt. Attach the invoice image manually if needed.'}
               >
                 <MessageCircle size={15} />
                 <span>{whatsapp.busy ? 'Sending…' : 'WhatsApp Customer'}</span>
@@ -448,14 +448,14 @@ export const RashidiStarInvoice: React.FC<RashidiStarInvoiceProps> = ({
                   fontWeight: 700,
                   cursor: 'pointer',
                 }}
-                title="Send invoice image and payment reminder together via linked WhatsApp"
+                title={whatsapp.directAvailable ? 'Send invoice image and payment reminder together via linked WhatsApp' : 'Open a prepared WhatsApp payment reminder. Attach the invoice image manually if needed.'}
               >
                 <BellRing size={15} />
                 <span>{whatsapp.busy ? 'Sending…' : 'Payment Reminder'}</span>
               </button>
             )}
 
-            {invoice.invoiceStatus !== 'CANCELLED' && invoice.customer?.phone && (
+            {whatsapp.directAvailable && invoice.invoiceStatus !== 'CANCELLED' && invoice.customer?.phone && (
               <button type="button" disabled={whatsapp.busy}
                 onClick={() => openWhatsAppWithText(paymentData, resolveMessageType(paymentState, paymentState !== 'FULLY PAID'))}
                 style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#fff', color: '#166534', border: '1px solid #16a34a', borderRadius: 8, padding: '7px 14px', fontSize: '12.5px', fontWeight: 700, cursor: 'pointer' }}
