@@ -22,6 +22,7 @@ import {
 import { TransactionAuditModal } from '../components/common/TransactionAuditModal';
 import { openWhatsAppWithText } from '../services/whatsappService';
 import { useInvoiceWhatsApp } from '../hooks/useInvoiceWhatsApp';
+import { WhatsAppSendFeedback } from '../components/common/WhatsAppSendFeedback';
 
 import { normalizeSearchText } from '../utils/searchUtils';
 import { CustomerCombobox } from '../components/common/CustomerCombobox';
@@ -223,7 +224,19 @@ export const PaymentsPage: React.FC = () => {
     }
 
     if (rcpt.invoice) {
-      void whatsapp.sendInvoice(rcpt.invoice.id, false);
+      const total = Number(rcpt.invoice.totalAmountKd ?? rcpt.invoice.grandTotalAmountKd ?? 0);
+      const outstanding = Number(rcpt.invoice.outstandingKd ?? rcpt.invoice.balanceKd ?? 0);
+      const isPaid = outstanding <= 0;
+      void whatsapp.sendInvoice(rcpt.invoice.id, false, {
+        paymentData: {
+          receiptNumber: rcpt.receiptNumber, customerName: rcpt.customer?.name, customerPhone: phone,
+          date: rcpt.receiptDate, amountReceived: rcpt.amountKd, paymentMethod: rcpt.paymentMethod,
+          invoiceNumber: rcpt.invoice.invoiceNumber, invoiceDate: rcpt.invoice.invoiceDate,
+          invoiceTotal: total, totalPaid: Number(rcpt.invoice.amountReceivedKd ?? Math.max(0, total - outstanding)),
+          outstandingAmount: outstanding, paymentStatus: isPaid ? 'PAID' : 'PARTIAL',
+        },
+        messageType: isPaid ? 'FULL_PAYMENT_RECEIPT' : 'PARTIAL_PAYMENT_RECEIPT',
+      });
     } else {
       // Generic payment confirmation from Payments page
       const custObj = customers.find((c) => c.id === rcpt.customer?.id);
@@ -291,7 +304,7 @@ export const PaymentsPage: React.FC = () => {
   return (
     <div className="space-y-6 pb-12 antialiased">
       {/* Toast */}
-      {whatsapp.message && <p role="status" aria-live="polite" className="p-3 bg-white border border-slate-300 rounded-lg text-sm text-slate-800">{whatsapp.message}</p>}
+      {!viewReceiptModal && <WhatsAppSendFeedback {...whatsapp} />}
       {toast && (
         <div className="fixed bottom-6 right-6 z-50 bg-emerald-600 text-white px-5 py-3 rounded-xl shadow-xl flex items-center gap-2 text-sm font-semibold animate-fade-in">
           <CheckCircle2 size={18} />
@@ -873,6 +886,7 @@ export const PaymentsPage: React.FC = () => {
 
             {/* Printable Content */}
             <div className="p-4 sm:p-6 space-y-4 overflow-y-auto custom-scrollbar flex-1">
+              {(!whatsapp.fallback || whatsapp.fallback.paymentData.receiptNumber === viewReceiptModal.receiptNumber) && <WhatsAppSendFeedback {...whatsapp} />}
               <div className="text-center pb-4 border-b border-slate-200">
                 <h3 className="text-lg font-black text-slate-900 tracking-tight">
                   RASHIDI STAR

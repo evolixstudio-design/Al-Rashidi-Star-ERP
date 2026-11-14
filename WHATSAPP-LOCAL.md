@@ -13,6 +13,8 @@ Run the backend and frontend locally. Sign in as admin, open **Settings → What
 
 The invoice's **WhatsApp Customer** and **Payment Reminder** buttons send its image and receipt/reminder as one message. Invoice-linked receipts in Payments work the same way. Customer and dashboard reminders send each unpaid invoice image with its own reminder caption; progress shows the count and stops on a failure. Payments with no linked invoice retain their existing text confirmation. Opening balances alone cannot have an invoice image.
 
+The invoice also has **WhatsApp (text only)**, which opens the previous prepared-message flow without the ERP QR connection. Failed direct sends show **Open WhatsApp (text only)** on invoices, Payments, Customers and the dashboard. Nothing is opened or resent automatically. Check the customer chat first after an uncertain or partially completed send. The fallback contains text only; download and attach the invoice image manually when needed. Audit entries record that the chat was opened, without claiming the draft was sent.
+
 Eight-digit local phone numbers default to Kuwait (`+965`). International numbers from any country retain their country code: use `+` or `00` followed by the country code and phone number. There is no country allowlist, and shorter international numbers are supported too. Only numbers registered on WhatsApp can receive a message. Recipients never need to link their account to the ERP.
 
 QR credentials stay in `backend/.wwebjs_auth/`; this folder and the browser cache are ignored by Git. Never upload or share the session folder. Disconnect in Settings to unlink it. Normal shutdown preserves the link for the next startup.

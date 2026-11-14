@@ -28,6 +28,7 @@ import { CustomerLedgerModal } from '../components/customers/CustomerLedgerModal
 import { AdjustOpeningBalanceModal } from '../components/customers/AdjustOpeningBalanceModal';
 import { ReceivePaymentModal } from '../components/payments/ReceivePaymentModal';
 import { useInvoiceWhatsApp } from '../hooks/useInvoiceWhatsApp';
+import { WhatsAppSendFeedback } from '../components/common/WhatsAppSendFeedback';
 import { useActionMenu } from '../hooks/useActionMenu';
 
 /* ───────────────────── Types ───────────────────── */
@@ -281,7 +282,10 @@ export const CustomersPage: React.FC = () => {
 
   /* ── WhatsApp Reminder Link ── */
   const sendWhatsAppReminder = (c: CustomerItem) => {
-    void whatsapp.sendCustomer(c.id);
+    void whatsapp.sendCustomer(c.id, {
+      paymentData: { customerName: c.name, customerPhone: c.phone, outstandingAmount: c.totalOutstandingKd ?? c.totalOutstanding },
+      messageType: 'OUTSTANDING_BALANCE_REMINDER',
+    });
   };
 
   /* ── Filtering & Metrics ── */
@@ -331,7 +335,7 @@ export const CustomersPage: React.FC = () => {
   return (
     <div className="w-full space-y-6">
       {/* Toast */}
-      {whatsapp.message && <p role="status" aria-live="polite" className="p-3 bg-white border border-slate-300 rounded-lg text-sm text-slate-800">{whatsapp.message}</p>}
+      <WhatsAppSendFeedback {...whatsapp} />
       {toast && (
         <div className="fixed bottom-6 right-6 z-50 bg-emerald-600 text-white px-5 py-3 rounded-xl shadow-xl flex items-center gap-2 text-sm font-semibold animate-in fade-in slide-in-from-bottom-4">
           <CheckCircle2 className="w-5 h-5" />

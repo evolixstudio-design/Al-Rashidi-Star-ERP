@@ -24,6 +24,7 @@ import {
   FileText,
 } from 'lucide-react';
 import { useInvoiceWhatsApp } from '../hooks/useInvoiceWhatsApp';
+import { WhatsAppSendFeedback } from '../components/common/WhatsAppSendFeedback';
 
 /* ───────────────────── Types ───────────────────── */
 
@@ -305,7 +306,10 @@ export const HomePage: React.FC = () => {
 
   // WhatsApp Reminder Handler
   const openWhatsAppReminder = (cust: PendingCustomer) => {
-    void whatsapp.sendCustomer(cust.id);
+    void whatsapp.sendCustomer(cust.id, {
+      paymentData: { customerName: cust.name, customerPhone: cust.phone, outstandingAmount: cust.outstandingKd },
+      messageType: 'OUTSTANDING_BALANCE_REMINDER',
+    });
   };
 
   // Trend Chart Calculations
@@ -341,7 +345,7 @@ export const HomePage: React.FC = () => {
 
   return (
     <div className="space-y-6 pb-14 antialiased text-sm">
-      {whatsapp.message && <p role="status" aria-live="polite" className="p-3 bg-white border border-slate-300 rounded-lg text-sm text-slate-800">{whatsapp.message}</p>}
+      <WhatsAppSendFeedback {...whatsapp} />
       {/* ───────────────────── 1. WELCOME / OWNER SESSION ───────────────────── */}
       <div className="bg-white rounded-2xl p-5 sm:p-6 shadow-xs border border-slate-200 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>

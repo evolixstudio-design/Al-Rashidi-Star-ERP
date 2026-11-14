@@ -1,5 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { useInvoiceWhatsApp } from '../../hooks/useInvoiceWhatsApp';
+import { WhatsAppSendFeedback } from './WhatsAppSendFeedback';
 import { Printer, MessageCircle, Download, Check, BellRing, History, Ban, Image as ImageIcon } from 'lucide-react';
 import { downloadFile } from '../../utils/downloadFile';
 import { TransactionAuditModal } from './TransactionAuditModal';
@@ -11,6 +12,8 @@ import {
 import {
   generateInvoiceJpg,
   downloadJpg,
+  openWhatsAppWithText,
+  resolveMessageType,
 } from '../../services/whatsappService';
 
 export type { InvoiceData, InvoiceLineItem };
@@ -115,12 +118,25 @@ export const RashidiStarInvoice: React.FC<RashidiStarInvoiceProps> = ({
     }
   };
 
+  const paymentData = {
+    customerName: invoice.customer?.name,
+    customerPhone: invoice.customer?.phone,
+    invoiceNumber: invoice.invoiceNumber,
+    invoiceDate: invoice.invoiceDate,
+    invoiceTotal,
+    totalPaid: amountPaid,
+    outstandingAmount: pendingAmount,
+    dueDate: invoice.dueDate,
+    paymentMethod: invoice.paymentType,
+    paymentStatus: paymentState,
+  };
+
   const handleWhatsAppAction = (isReminder = false) => {
     if (!invoice.id) {
       setPdfSuccessMessage('Save the invoice before sending it to WhatsApp.');
       return;
     }
-    void whatsapp.sendInvoice(invoice.id, isReminder);
+    void whatsapp.sendInvoice(invoice.id, isReminder, { paymentData, messageType: resolveMessageType(paymentState, isReminder) });
   };
 
   const handlePrint = () => {
@@ -439,6 +455,15 @@ export const RashidiStarInvoice: React.FC<RashidiStarInvoiceProps> = ({
               </button>
             )}
 
+            {invoice.invoiceStatus !== 'CANCELLED' && invoice.customer?.phone && (
+              <button type="button" disabled={whatsapp.busy}
+                onClick={() => openWhatsAppWithText(paymentData, resolveMessageType(paymentState, paymentState !== 'FULLY PAID'))}
+                style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#fff', color: '#166534', border: '1px solid #16a34a', borderRadius: 8, padding: '7px 14px', fontSize: '12.5px', fontWeight: 700, cursor: 'pointer' }}
+                title="Open a prepared WhatsApp message without the QR connection. Text only; attach an image manually if needed.">
+                <MessageCircle size={15} /><span>WhatsApp (text only)</span>
+              </button>
+            )}
+
             {/* Audit History */}
             <button
               onClick={() => setShowHistoryModal(true)}
@@ -510,7 +535,7 @@ export const RashidiStarInvoice: React.FC<RashidiStarInvoiceProps> = ({
         </div>
 
         {/* PDF/Photo Toast */}
-        {whatsapp.message && <p role="status" aria-live="polite" style={{ background: '#fff', color: '#0f172a', padding: '12px 16px', borderRadius: 8, margin: '8px 0', maxWidth: 1000, width: '100%' }}>{whatsapp.message}</p>}
+        <WhatsAppSendFeedback {...whatsapp} />
         {pdfSuccessMessage && (
           <div
             style={{
